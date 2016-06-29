@@ -1,0 +1,712 @@
+<!doctype html>
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/vendors/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/vendors/font-awesome/css/font-awesome.min.css?v=4.4.0" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.0.1" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="Ardb," />
+
+
+
+
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=5.0.1" />
+
+
+
+
+
+
+<meta name="description" content="在Ardb的设计中， 编解码层是一个很重要的环节。编解码层的存在， 屏蔽了各种kv存储实现的不同，可以在任意一个简单的kv存储引擎上， 封装实现string， hash， list， set， sorted set等复杂类型的数据结构。这里简单介绍下Ardb中的编解码层的设计实现。
+Overview首先，有这样的设计约定：  
+
+所有的数据结构，都可以被一对或者多对简单key-value表示
+每种">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Ardb内部编解码格式">
+<meta property="og:url" content="http://yinqiwen.github.io/Ardb/2014/11/22/ardbcodec.html">
+<meta property="og:site_name" content="隐去其闻">
+<meta property="og:description" content="在Ardb的设计中， 编解码层是一个很重要的环节。编解码层的存在， 屏蔽了各种kv存储实现的不同，可以在任意一个简单的kv存储引擎上， 封装实现string， hash， list， set， sorted set等复杂类型的数据结构。这里简单介绍下Ardb中的编解码层的设计实现。
+Overview首先，有这样的设计约定：  
+
+所有的数据结构，都可以被一对或者多对简单key-value表示
+每种">
+<meta property="og:updated_time" content="2016-06-22T14:55:21.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Ardb内部编解码格式">
+<meta name="twitter:description" content="在Ardb的设计中， 编解码层是一个很重要的环节。编解码层的存在， 屏蔽了各种kv存储实现的不同，可以在任意一个简单的kv存储引擎上， 封装实现string， hash， list， set， sorted set等复杂类型的数据结构。这里简单介绍下Ardb中的编解码层的设计实现。
+Overview首先，有这样的设计约定：  
+
+所有的数据结构，都可以被一对或者多对简单key-value表示
+每种">
+
+
+
+<script type="text/javascript" id="hexo.configuration">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    scheme: 'Pisces',
+    sidebar: {"position":"left","display":"post"},
+    fancybox: true,
+    motion: true,
+    duoshuo: {
+      userId: 0,
+      author: '博主'
+    }
+  };
+</script>
+
+
+
+
+  <link rel="canonical" href="http://yinqiwen.github.io/Ardb/2014/11/22/ardbcodec.html"/>
+
+  <title> Ardb内部编解码格式 | 隐去其闻 </title>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+
+
+
+
+
+
+
+
+
+
+  
+  
+    
+  
+
+  <div class="container one-collumn sidebar-position-left page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-meta ">
+  
+
+  <div class="custom-logo-site-title">
+    <a href="/"  class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <span class="site-title">隐去其闻</span>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+  <p class="site-subtitle"></p>
+</div>
+
+<div class="site-nav-toggle">
+  <button>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+  </button>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br />
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-user"></i> <br />
+            
+            关于
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            归档
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            标签
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                Ardb内部编解码格式
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            <span class="post-meta-item-icon">
+              <i class="fa fa-calendar-o"></i>
+            </span>
+            <span class="post-meta-item-text">发表于</span>
+            <time itemprop="dateCreated" datetime="2014-11-21T11:00:00-05:00" content="2014-11-21">
+              2014-11-21
+            </time>
+          </span>
+
+          
+            <span class="post-category" >
+              &nbsp; | &nbsp;
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+              
+                <span itemprop="about" itemscope itemtype="https://schema.org/Thing">
+                  <a href="/categories/Ardb/" itemprop="url" rel="index">
+                    <span itemprop="name">Ardb</span>
+                  </a>
+                </span>
+
+                
+                
+
+              
+            </span>
+          
+
+          
+            
+              <span class="post-comments-count">
+                &nbsp; | &nbsp;
+                <a href="/Ardb/2014/11/22/ardbcodec.html#comments" itemprop="discussionUrl">
+                  <span class="post-comments-count ds-thread-count" data-thread-key="Ardb/2014/11/22/ardbcodec.html" itemprop="commentsCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+
+          
+          
+
+          
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>在Ardb的设计中， 编解码层是一个很重要的环节。编解码层的存在， 屏蔽了各种kv存储实现的不同，可以在任意一个简单的kv存储引擎上， 封装实现string， hash， list， set， sorted set等复杂类型的数据结构。这里简单介绍下Ardb中的编解码层的设计实现。</p>
+<h2 id="Overview"><a href="#Overview" class="headerlink" title="Overview"></a>Overview</h2><p>首先，有这样的设计约定：  </p>
+<ul>
+<li>所有的数据结构，都可以被一对或者多对简单key-value表示</li>
+<li>每种数据结构，至少包含一个元信息key-value对(meta)，用于保存额外的信息（db，类型，expire时间等）；如hash、set、list、sorted set等复杂结构均是每个key对应有一个meta</li>
+</ul>
+<h2 id="内部Key的格式"><a href="#内部Key的格式" class="headerlink" title="内部Key的格式"></a>内部Key的格式</h2><p>对于所有的Key， 包含同样的前缀，编码格式定义如下：</p>
+<pre><code>db(3B) type（1B） key(V) ...
+</code></pre><p>Note： 3B、1B代表3字节，1字节， ‘V’代表变长字符串<br><a id="more"></a></p>
+<ul>
+<li>db用于支持类似redis中的库概念；db支持0-16777215</li>
+<li>key则是一个变长二进制字符串</li>
+<li>type用于定义一个简单key-value的类型，此类型隐含表明key的数据结构类型;一个字节</li>
+<li>meta信息的key中type固定为KEY_META；具体类型将在value中定义（参考下一节）</li>
+<li>除以上三部分外，不同类型的key可能有附加字段；如Hash的key可能需要附加field字段</li>
+<li>所有类型type在<a href="https://github.com/yinqiwen/ardb/blob/master/src/codec.hpp" target="_blank" rel="external">codec.hpp</a>中定义</li>
+</ul>
+<h2 id="内部Value的格式"><a href="#内部Value的格式" class="headerlink" title="内部Value的格式"></a>内部Value的格式</h2><p>内部Value则比较复杂，编码均以type（1字节）开始， type取值即上节定义的KeyType</p>
+<pre><code>type(1B) ...  
+</code></pre><p>后续格式根据各种类型定义不同，不过Meta value中均以expire时间开始，详细在后续<code>expire实现</code>中讨论。</p>
+<h2 id="Code"><a href="#Code" class="headerlink" title="Code"></a>Code</h2><p>所有编解码实现在<a href="https://github.com/yinqiwen/ardb/blob/master/src/codec.hpp" target="_blank" rel="external">codec.hpp</a>以及<a href="https://github.com/yinqiwen/ardb/blob/master/src/codec.cpp" target="_blank" rel="external">codec.cpp</a>中</p>
+<h2 id="Del的实现"><a href="#Del的实现" class="headerlink" title="Del的实现"></a>Del的实现</h2><p>所有的数据结构都有保存meta的一个key-value，而meta信息的key编码格式是统一的，因此在ardb中是不可能出现不同数据结构有相同名字的情况。<br>Del实现中会先查询meta的key-value，得到具体数据结构类型，然后执行对应的删除工作， 类似如下的步骤：  </p>
+<ul>
+<li>查询指定key的meta信息，得到数据结构类型</li>
+<li>根据具体类型，执行删除工作</li>
+<li>所以一次del至少需要 一次读 + 后续删除写操作 </li>
+</ul>
+<p>##Zip Value<br>Ardb中针对hash、set、list、sorted set等复杂结构有一个zip value的优化，基本思路仍然受redis实现影响； </p>
+<ul>
+<li>当hash、set、list、sorted set等复杂结构中保存元素数量和大小比较小的时候，将会用一个key-value保存， value中将把这些元素紧凑合并在一起；</li>
+<li>此优化对于小数据量的hash/set等在<code>hgetall/smembers/del</code>等这些操作优化极为明显；将对多个key的操作简化到一个key上</li>
+<li>zip value会保存在meta的value中</li>
+</ul>
+<h2 id="Expire的实现"><a href="#Expire的实现" class="headerlink" title="Expire的实现"></a>Expire的实现</h2><p>在一个key-value存储引擎上支持复杂数据结构的expire过期数据的实现比较困难，ardb中则用几个特殊技巧实现了对所有数据结构的过期（expire）的支持，感兴趣的朋友可以一起讨论下。<br>具体实现如下： </p>
+<ul>
+<li>meta的value中保存expire信息， 用绝对unix时间（ms）保存；</li>
+<li>基于以上设计，ttl/pttl等查询ttl的操作只需要一次读meta即可完成；</li>
+<li>基于以上设计，任何对meta信息的读取，都会触发expire的判断，由于对meta信息的读操作是必须的步骤，这里无需额外的读操作</li>
+<li>保存设置expire时间到meta时， 当expire时间非0时，额外保存一个key-value， type为<code>KEY_EXPIRATION_ELEMENT</code>； key的编码格式为 <code>&lt;db&gt;&lt;expire time&gt;&lt;key&gt;</code>, value为空；所以类似<code>expire &lt;key&gt;</code>等设置过期时间的操作，在ardb的实现中将会多一次写操作；</li>
+<li>在自定义的comparator中，对<code>KEY_EXPIRATION_ELEMENT</code>类型的key比较规则为先比较<code>&lt;expire time&gt;</code>，这样<code>KEY_EXPIRATION_ELEMENT</code>数据将会以过期时间远近保存在一起</li>
+<li>ardb中独立启动一个线程，每隔一定时间（100ms）顺序扫描<code>KEY_EXPIRATION_ELEMENT</code>类型数据；当过期时间小于当前时间，即可触发删除操作；当过期时间大于当前时间，即可终止本次扫描</li>
+</ul>
+
+      
+    </div>
+
+    <div>
+      
+        
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Ardb/" rel="tag">#Ardb</a>
+          
+        </div>
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/杂感/2014/10/26/misc5.html" rel="next" title="杂感之五">
+                <i class="fa fa-chevron-left"></i> 杂感之五
+              </a>
+            
+          </div>
+
+          <div class="post-nav-prev post-nav-item">
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </article>
+
+
+
+    <div class="post-spread">
+      
+        <!-- JiaThis Button BEGIN -->
+<div class="jiathis_style">
+  <a class="jiathis_button_tsina"></a>
+  <a class="jiathis_button_tqq"></a>
+  <a class="jiathis_button_weixin"></a>
+  <a class="jiathis_button_cqq"></a>
+  <a class="jiathis_button_douban"></a>
+  <a class="jiathis_button_renren"></a>
+  <a class="jiathis_button_qzone"></a>
+  <a class="jiathis_button_kaixin001"></a>
+  <a class="jiathis_button_copy"></a>
+  <a href="http://www.jiathis.com/share" class="jiathis jiathis_txt jiathis_separator jtico jtico_jiathis" target="_blank"></a>
+  <a class="jiathis_counter_style"></a>
+</div>
+<script type="text/javascript" >
+  var jiathis_config={
+    hideMore:false
+  }
+</script>
+<script type="text/javascript" src="http://v3.jiathis.com/code/jia.js" charset="utf-8"></script>
+<!-- JiaThis Button END -->
+
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+      <div class="ds-thread" data-thread-key="Ardb/2014/11/22/ardbcodec.html"
+           data-title="Ardb内部编解码格式" data-url="http://yinqiwen.github.io/Ardb/2014/11/22/ardbcodec.html">
+      </div>
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel ">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image"
+               src="/images/avatar.gif"
+               alt="yinqiwen" />
+          <p class="site-author-name" itemprop="name">yinqiwen</p>
+          <p class="site-description motion-element" itemprop="description">Tech & Think</p>
+        </div>
+        <nav class="site-state motion-element">
+          <div class="site-state-item site-state-posts">
+            <a href="/archives">
+              <span class="site-state-item-count">16</span>
+              <span class="site-state-item-name">日志</span>
+            </a>
+          </div>
+
+          
+            <div class="site-state-item site-state-categories">
+              <a href="/categories">
+                <span class="site-state-item-count">3</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            <div class="site-state-item site-state-tags">
+              <a href="/tags">
+                <span class="site-state-item-count">11</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+
+        <div class="links-of-author motion-element">
+          
+        </div>
+
+        
+        
+
+        
+        
+
+      </section>
+
+      
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+            
+              
+            
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Overview"><span class="nav-number">1.</span> <span class="nav-text">Overview</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#内部Key的格式"><span class="nav-number">2.</span> <span class="nav-text">内部Key的格式</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#内部Value的格式"><span class="nav-number">3.</span> <span class="nav-text">内部Value的格式</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Code"><span class="nav-number">4.</span> <span class="nav-text">Code</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Del的实现"><span class="nav-number">5.</span> <span class="nav-text">Del的实现</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Expire的实现"><span class="nav-number">6.</span> <span class="nav-text">Expire的实现</span></a></li></ol></div>
+            
+          </div>
+        </section>
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy;  2013 - 
+  <span itemprop="copyrightYear">2016</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">yinqiwen</span>
+</div>
+
+<div class="powered-by">
+  由 <a class="theme-link" href="http://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Pisces
+  </a>
+</div>
+
+        
+
+        
+      </div>
+    </footer>
+
+    <div class="back-to-top">
+      <i class="fa fa-arrow-up"></i>
+    </div>
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+  
+  <script type="text/javascript" src="/vendors/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/vendors/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/vendors/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/vendors/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/vendors/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/vendors/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.0.1"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.0.1"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.0.1"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.0.1"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.0.1"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.0.1"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.0.1"></script>
+
+
+
+  
+
+  
+    
+  
+
+  <script type="text/javascript">
+    var duoshuoQuery = {short_name:"yinqiwen"};
+    (function() {
+      var ds = document.createElement('script');
+      ds.type = 'text/javascript';ds.async = true;
+      ds.id = 'duoshuo-script';
+      ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+      ds.charset = 'UTF-8';
+      (document.getElementsByTagName('head')[0]
+      || document.getElementsByTagName('body')[0]).appendChild(ds);
+    })();
+  </script>
+
+  
+    
+  
+
+
+
+
+
+
+  
+  
+  
+
+  
+
+  
+
+</body>
+</html>

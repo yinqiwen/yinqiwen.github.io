@@ -1,0 +1,750 @@
+<!doctype html>
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/vendors/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/vendors/font-awesome/css/font-awesome.min.css?v=4.4.0" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.0.1" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="Ardb,Cluster,Zookeeper," />
+
+
+
+
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=5.0.1" />
+
+
+
+
+
+
+<meta name="description" content="随着Ardb的Replication实现部分稳定下来，需要开始考虑如何实现集群的方案了。中秋的几天抽空思考了下相关设计，以下是初步设想，可以作为初步设计草案。
+##目标与约定
+
+兼容Redis的client的cluster部分 —— 意味着client端可以直接用redis的各种支持cluster的client实现，而无需单独开发
+集群节点间复制机制沿用现有异步实现，意味着在主从切换时存在丢数据的">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Ardb集群设计（草案）">
+<meta property="og:url" content="http://yinqiwen.github.io/Ardb/2014/09/08/cluster.html">
+<meta property="og:site_name" content="隐去其闻">
+<meta property="og:description" content="随着Ardb的Replication实现部分稳定下来，需要开始考虑如何实现集群的方案了。中秋的几天抽空思考了下相关设计，以下是初步设想，可以作为初步设计草案。
+##目标与约定
+
+兼容Redis的client的cluster部分 —— 意味着client端可以直接用redis的各种支持cluster的client实现，而无需单独开发
+集群节点间复制机制沿用现有异步实现，意味着在主从切换时存在丢数据的">
+<meta property="og:updated_time" content="2016-06-22T14:53:18.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Ardb集群设计（草案）">
+<meta name="twitter:description" content="随着Ardb的Replication实现部分稳定下来，需要开始考虑如何实现集群的方案了。中秋的几天抽空思考了下相关设计，以下是初步设想，可以作为初步设计草案。
+##目标与约定
+
+兼容Redis的client的cluster部分 —— 意味着client端可以直接用redis的各种支持cluster的client实现，而无需单独开发
+集群节点间复制机制沿用现有异步实现，意味着在主从切换时存在丢数据的">
+
+
+
+<script type="text/javascript" id="hexo.configuration">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    scheme: 'Pisces',
+    sidebar: {"position":"left","display":"post"},
+    fancybox: true,
+    motion: true,
+    duoshuo: {
+      userId: 0,
+      author: '博主'
+    }
+  };
+</script>
+
+
+
+
+  <link rel="canonical" href="http://yinqiwen.github.io/Ardb/2014/09/08/cluster.html"/>
+
+  <title> Ardb集群设计（草案） | 隐去其闻 </title>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+
+
+
+
+
+
+
+
+
+
+  
+  
+    
+  
+
+  <div class="container one-collumn sidebar-position-left page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-meta ">
+  
+
+  <div class="custom-logo-site-title">
+    <a href="/"  class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <span class="site-title">隐去其闻</span>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+  <p class="site-subtitle"></p>
+</div>
+
+<div class="site-nav-toggle">
+  <button>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+  </button>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br />
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-user"></i> <br />
+            
+            关于
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            归档
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            标签
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                Ardb集群设计（草案）
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            <span class="post-meta-item-icon">
+              <i class="fa fa-calendar-o"></i>
+            </span>
+            <span class="post-meta-item-text">发表于</span>
+            <time itemprop="dateCreated" datetime="2014-09-07T12:00:00-04:00" content="2014-09-07">
+              2014-09-07
+            </time>
+          </span>
+
+          
+            <span class="post-category" >
+              &nbsp; | &nbsp;
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+              
+                <span itemprop="about" itemscope itemtype="https://schema.org/Thing">
+                  <a href="/categories/Ardb/" itemprop="url" rel="index">
+                    <span itemprop="name">Ardb</span>
+                  </a>
+                </span>
+
+                
+                
+
+              
+            </span>
+          
+
+          
+            
+              <span class="post-comments-count">
+                &nbsp; | &nbsp;
+                <a href="/Ardb/2014/09/08/cluster.html#comments" itemprop="discussionUrl">
+                  <span class="post-comments-count ds-thread-count" data-thread-key="Ardb/2014/09/08/cluster.html" itemprop="commentsCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+
+          
+          
+
+          
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>随着Ardb的Replication实现部分稳定下来，需要开始考虑如何实现集群的方案了。中秋的几天抽空思考了下相关设计，以下是初步设想，可以作为初步设计草案。</p>
+<p>##目标与约定</p>
+<ul>
+<li>兼容Redis的client的cluster部分 —— 意味着client端可以直接用redis的各种支持cluster的client实现，而无需单独开发</li>
+<li>集群节点间复制机制沿用现有异步实现，意味着在主从切换时存在丢数据的可能，这个无法避免；此约束需要特别指明，以防误解</li>
+<li>此分布式系统应该满足AP限制， 较弱的一致性约束</li>
+<li>需要支持大于1的备份；</li>
+<li>每个节点最多只有一个Slave，多备份情况下见后续的slave作为上一slave的slave串行相连</li>
+<li>数据分库存放 —— 数据按现有的库实现分区存放（和redis的slot实现不同）， 支持0到0xFFFFFF, cluster中应该可以限制更小一些，比如16384（redis的取值）； 分库存放对后续迁移数据时会比较容易，无需迭代所有底层数据</li>
+<li>分两部分实现：Cluster Manager以及Node Agent</li>
+<li>整体基于zookeepr，Cluster Manager用python实现，基于<a href="https://kazoo.readthedocs.org" target="_blank" rel="external">kazoo</a>; Node Agent直接基于zookeeper的c client库，集成到Ardb实例中。</li>
+<li>集群拓扑关系存于zookeeper中，各个节点同步获取</li>
+<li>集群环境原则上只支持单key的命令，支持的命令参考redis集群支持情况</li>
+</ul>
+<a id="more"></a>
+<h2 id="Cluster-Manager"><a href="#Cluster-Manager" class="headerlink" title="Cluster Manager"></a>Cluster Manager</h2><h3 id="功能"><a href="#功能" class="headerlink" title="功能"></a>功能</h3><ul>
+<li>新增节点发现</li>
+<li>宕机节点摘除</li>
+</ul>
+<h3 id="内部逻辑实现"><a href="#内部逻辑实现" class="headerlink" title="内部逻辑实现"></a>内部逻辑实现</h3><ul>
+<li>Cluster Manager启动后第一步， 先获取分布式锁<code>/ardb_cluster/global_lock</code>；若获取到进行下一步， 否则继续等待获取 —— 用于保证同时只有一个管理程序在运行</li>
+<li>获取到唯一锁之后，先获取节点<code>/ardb_cluster/active_nodes</code>下的所有子节点， 节点为每个Node Agent连上zookeeper后创建的Ephemeral节点，节点名为”Host:Port”格式；节点同时携带一份json格式数据，有节点的servicekey等信息。</li>
+<li>同时，Cluster Manager可以从<code>/ardb_cluster/cluster_info</code>下获取当前集群拓扑信息，若在内存中存在该信息，则无需到ZK上获取</li>
+<li>集群拓扑信息大致可以用一个Map表示，key为servicekey， value为一个node list + 数据分库列表信息</li>
+<li>Cluster Manager将获取到的节点列表和在内存中的集群拓扑比较，分别得到恢复节点集合/新增节点集合/删除节点集合</li>
+<li>后续将分别讨论恢复如何处理节点/删除节点/新增节点</li>
+<li>处理完毕后，等待1分钟，继续从第二步检查获取<code>/ardb_cluster/active_nodes</code>开始,如此反复</li>
+</ul>
+<h4 id="节点恢复"><a href="#节点恢复" class="headerlink" title="节点恢复"></a>节点恢复</h4><ul>
+<li>若节点对应的拓扑信息中当前node list的长度等于配置的数据备份数， 则作为新增节点处理（需要考虑servicekey冲突问题）</li>
+<li>否则直接将该节点作为node list中最后一个无slave节点的slave，调用redis命令<code>slaveof &lt;ip&gt; &lt;port&gt;</code>即可</li>
+</ul>
+<h4 id="节点删除"><a href="#节点删除" class="headerlink" title="节点删除"></a>节点删除</h4><ul>
+<li>根据节点对应的拓扑信息中找到该节点的master/slave</li>
+<li>若都存在，则需要将slave作为自己master的slave，调用redis命令到自己slave上执行<code>slaveof &lt;mymaster_ip&gt; &lt;mymaster_port&gt;</code>即可</li>
+<li>若master不存在，则说明该节点为该数据分区的master，直接将自己slave提升为master， 执行redis命令<code>slaveof no one</code></li>
+<li>若slave不存在，意味是最后一个备份节点，无需任何处理</li>
+</ul>
+<h4 id="节点新增"><a href="#节点新增" class="headerlink" title="节点新增"></a>节点新增</h4><ul>
+<li>若当前拓扑信息中某数据分区缺少一个节点作为备份，直接加入到该分区，作为最后一个备份加入</li>
+<li>否则，判断是否需要作为集群扩容处理，判断准则为至少有指定备份数机器待加入集群</li>
+<li>未达到集群扩容处理标准，将该节点状态置为<code>CLUSTER_PENDDING</code></li>
+<li>达到集群扩容处理标准后，先将该批机器master/slave关系确定</li>
+<li>然后计算需要迁移的数据分区，调用相应命令迁移数据到该批机器上（需要更详细方案）；数据状态为<code>DATA_MIGRATING</code></li>
+<li>数据迁移完成后， 该节点状态置为<code>CLUSTER_READY</code>， 数据对应状态为<code>DATA_READY</code>  </li>
+</ul>
+<h3 id="一些待完善的思路"><a href="#一些待完善的思路" class="headerlink" title="一些待完善的思路"></a>一些待完善的思路</h3><ul>
+<li>servicekey冲突 —— 新增节点的servicekey与现有集群中冲突</li>
+<li>数据迁移的具体过程实现</li>
+<li>数据迁移时间可能很长，会阻塞Cluster Manager逻辑，考虑是否支持并行处理（数据迁移中，同时例行监测集群事件）， 支持并行可能遇到更复杂的情况</li>
+</ul>
+<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><ul>
+<li>最复杂的就是集群扩容问题，其它的相对非常简单</li>
+</ul>
+<h2 id="Node-Agent-amp-Ardb"><a href="#Node-Agent-amp-Ardb" class="headerlink" title="Node Agent &amp; Ardb"></a>Node Agent &amp; Ardb</h2><h3 id="内部逻辑实现-1"><a href="#内部逻辑实现-1" class="headerlink" title="内部逻辑实现"></a>内部逻辑实现</h3><ul>
+<li>Node Agent集成在Ardb实例内部，当配置项’cluster-enabled’设置为’yes’时启动</li>
+<li>启动后，连接zookeeper， 在节点<code>/ardb_cluster/active_nodes</code>下创建Ephemeral节点， 节点名为’host：port’形式, 携带数据为json格式数据</li>
+<li>同时获取并watch节点<code>/ardb_cluster/cluster_info</code>内容，与当前集群拓扑内容保持同步； 根据集群拓扑内容在内存中构建集群拓扑与数据路由表</li>
+<li>将redis命令中的key通过制定hash算法得到一个hash值，然后根据集群拓扑表判断此请求应该在哪台机器上</li>
+<li>若当前机器状态非”CLUSTER_READY”，则对所有请求恢复一致错误</li>
+<li>若在当前机器上，处理该请求</li>
+<li>若在其它机器上，根据路由表回复重定向应答”-moved host:port”</li>
+</ul>
+<h3 id="一些待完善的思路-1"><a href="#一些待完善的思路-1" class="headerlink" title="一些待完善的思路"></a>一些待完善的思路</h3><ul>
+<li>数据迁移如何实现</li>
+<li>是否引入和Redis实现类似的 -ASK 重定向</li>
+<li>是否需要区分读写请求，进而将读请求转至slave处理？（存在数据一致性问题， 即master写入后，从slave读）</li>
+<li>是否需要和Cluster Manager直接交互？提供扩展redis命令？如servicekey reset</li>
+</ul>
+<h3 id="总结-1"><a href="#总结-1" class="headerlink" title="总结"></a>总结</h3><ul>
+<li>数据迁移的实现需要更详细的方案</li>
+</ul>
+
+      
+    </div>
+
+    <div>
+      
+        
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Ardb/" rel="tag">#Ardb</a>
+          
+            <a href="/tags/Cluster/" rel="tag">#Cluster</a>
+          
+            <a href="/tags/Zookeeper/" rel="tag">#Zookeeper</a>
+          
+        </div>
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/杂感/2014/09/05/misc2.html" rel="next" title="杂感之二">
+                <i class="fa fa-chevron-left"></i> 杂感之二
+              </a>
+            
+          </div>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/Ardb/2014/09/08/cold-hot-data.html" rel="prev" title="一种基于Redis/Ardb的混合部署存储方案">
+                一种基于Redis/Ardb的混合部署存储方案 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </article>
+
+
+
+    <div class="post-spread">
+      
+        <!-- JiaThis Button BEGIN -->
+<div class="jiathis_style">
+  <a class="jiathis_button_tsina"></a>
+  <a class="jiathis_button_tqq"></a>
+  <a class="jiathis_button_weixin"></a>
+  <a class="jiathis_button_cqq"></a>
+  <a class="jiathis_button_douban"></a>
+  <a class="jiathis_button_renren"></a>
+  <a class="jiathis_button_qzone"></a>
+  <a class="jiathis_button_kaixin001"></a>
+  <a class="jiathis_button_copy"></a>
+  <a href="http://www.jiathis.com/share" class="jiathis jiathis_txt jiathis_separator jtico jtico_jiathis" target="_blank"></a>
+  <a class="jiathis_counter_style"></a>
+</div>
+<script type="text/javascript" >
+  var jiathis_config={
+    hideMore:false
+  }
+</script>
+<script type="text/javascript" src="http://v3.jiathis.com/code/jia.js" charset="utf-8"></script>
+<!-- JiaThis Button END -->
+
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+      <div class="ds-thread" data-thread-key="Ardb/2014/09/08/cluster.html"
+           data-title="Ardb集群设计（草案）" data-url="http://yinqiwen.github.io/Ardb/2014/09/08/cluster.html">
+      </div>
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel ">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image"
+               src="/images/avatar.gif"
+               alt="yinqiwen" />
+          <p class="site-author-name" itemprop="name">yinqiwen</p>
+          <p class="site-description motion-element" itemprop="description">Tech & Think</p>
+        </div>
+        <nav class="site-state motion-element">
+          <div class="site-state-item site-state-posts">
+            <a href="/archives">
+              <span class="site-state-item-count">16</span>
+              <span class="site-state-item-name">日志</span>
+            </a>
+          </div>
+
+          
+            <div class="site-state-item site-state-categories">
+              <a href="/categories">
+                <span class="site-state-item-count">3</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            <div class="site-state-item site-state-tags">
+              <a href="/tags">
+                <span class="site-state-item-count">11</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+
+        <div class="links-of-author motion-element">
+          
+        </div>
+
+        
+        
+
+        
+        
+
+      </section>
+
+      
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+            
+              
+            
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Cluster-Manager"><span class="nav-number">1.</span> <span class="nav-text">Cluster Manager</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#功能"><span class="nav-number">1.1.</span> <span class="nav-text">功能</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#内部逻辑实现"><span class="nav-number">1.2.</span> <span class="nav-text">内部逻辑实现</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#节点恢复"><span class="nav-number">1.2.1.</span> <span class="nav-text">节点恢复</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#节点删除"><span class="nav-number">1.2.2.</span> <span class="nav-text">节点删除</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#节点新增"><span class="nav-number">1.2.3.</span> <span class="nav-text">节点新增</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#一些待完善的思路"><span class="nav-number">1.3.</span> <span class="nav-text">一些待完善的思路</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#总结"><span class="nav-number">1.4.</span> <span class="nav-text">总结</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Node-Agent-amp-Ardb"><span class="nav-number">2.</span> <span class="nav-text">Node Agent & Ardb</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#内部逻辑实现-1"><span class="nav-number">2.1.</span> <span class="nav-text">内部逻辑实现</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#一些待完善的思路-1"><span class="nav-number">2.2.</span> <span class="nav-text">一些待完善的思路</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#总结-1"><span class="nav-number">2.3.</span> <span class="nav-text">总结</span></a></li></ol></li></ol></div>
+            
+          </div>
+        </section>
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy;  2013 - 
+  <span itemprop="copyrightYear">2016</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">yinqiwen</span>
+</div>
+
+<div class="powered-by">
+  由 <a class="theme-link" href="http://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Pisces
+  </a>
+</div>
+
+        
+
+        
+      </div>
+    </footer>
+
+    <div class="back-to-top">
+      <i class="fa fa-arrow-up"></i>
+    </div>
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+  
+  <script type="text/javascript" src="/vendors/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/vendors/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/vendors/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/vendors/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/vendors/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/vendors/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.0.1"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.0.1"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.0.1"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.0.1"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.0.1"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.0.1"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.0.1"></script>
+
+
+
+  
+
+  
+    
+  
+
+  <script type="text/javascript">
+    var duoshuoQuery = {short_name:"yinqiwen"};
+    (function() {
+      var ds = document.createElement('script');
+      ds.type = 'text/javascript';ds.async = true;
+      ds.id = 'duoshuo-script';
+      ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+      ds.charset = 'UTF-8';
+      (document.getElementsByTagName('head')[0]
+      || document.getElementsByTagName('body')[0]).appendChild(ds);
+    })();
+  </script>
+
+  
+    
+  
+
+
+
+
+
+
+  
+  
+  
+
+  
+
+  
+
+</body>
+</html>

@@ -1,0 +1,709 @@
+<!doctype html>
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/vendors/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/vendors/font-awesome/css/font-awesome.min.css?v=4.4.0" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.0.1" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="Ardb,RocksDB," />
+
+
+
+
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=5.0.1" />
+
+
+
+
+
+
+<meta name="description" content="部署运营情况Ardb（RocksDB）目前在生产环境中是作为一个在线推荐/查询系统的存储服务部署，持续运行了约半年，相关的一些运营情况
+
+1T SSD机器，主从互备
+共存储约450GB的原始数据（integer变长存储，snappy压缩并compact后120GB），每天约更新150GB的数据（存放到redis同样结构，大约700G内存占用）
+最大写入qps为20000（Ardb配置中限制）， 大">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Ardb-RocksDB的一些生产环境实践总结">
+<meta property="og:url" content="http://yinqiwen.github.io/Ardb/2014/09/13/ardb-practice.html">
+<meta property="og:site_name" content="隐去其闻">
+<meta property="og:description" content="部署运营情况Ardb（RocksDB）目前在生产环境中是作为一个在线推荐/查询系统的存储服务部署，持续运行了约半年，相关的一些运营情况
+
+1T SSD机器，主从互备
+共存储约450GB的原始数据（integer变长存储，snappy压缩并compact后120GB），每天约更新150GB的数据（存放到redis同样结构，大约700G内存占用）
+最大写入qps为20000（Ardb配置中限制）， 大">
+<meta property="og:updated_time" content="2016-06-22T14:54:03.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Ardb-RocksDB的一些生产环境实践总结">
+<meta name="twitter:description" content="部署运营情况Ardb（RocksDB）目前在生产环境中是作为一个在线推荐/查询系统的存储服务部署，持续运行了约半年，相关的一些运营情况
+
+1T SSD机器，主从互备
+共存储约450GB的原始数据（integer变长存储，snappy压缩并compact后120GB），每天约更新150GB的数据（存放到redis同样结构，大约700G内存占用）
+最大写入qps为20000（Ardb配置中限制）， 大">
+
+
+
+<script type="text/javascript" id="hexo.configuration">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    scheme: 'Pisces',
+    sidebar: {"position":"left","display":"post"},
+    fancybox: true,
+    motion: true,
+    duoshuo: {
+      userId: 0,
+      author: '博主'
+    }
+  };
+</script>
+
+
+
+
+  <link rel="canonical" href="http://yinqiwen.github.io/Ardb/2014/09/13/ardb-practice.html"/>
+
+  <title> Ardb-RocksDB的一些生产环境实践总结 | 隐去其闻 </title>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+
+
+
+
+
+
+
+
+
+
+  
+  
+    
+  
+
+  <div class="container one-collumn sidebar-position-left page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-meta ">
+  
+
+  <div class="custom-logo-site-title">
+    <a href="/"  class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <span class="site-title">隐去其闻</span>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+  <p class="site-subtitle"></p>
+</div>
+
+<div class="site-nav-toggle">
+  <button>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+  </button>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br />
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-user"></i> <br />
+            
+            关于
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            归档
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            标签
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                Ardb-RocksDB的一些生产环境实践总结
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            <span class="post-meta-item-icon">
+              <i class="fa fa-calendar-o"></i>
+            </span>
+            <span class="post-meta-item-text">发表于</span>
+            <time itemprop="dateCreated" datetime="2014-09-12T12:00:00-04:00" content="2014-09-12">
+              2014-09-12
+            </time>
+          </span>
+
+          
+            <span class="post-category" >
+              &nbsp; | &nbsp;
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+              
+                <span itemprop="about" itemscope itemtype="https://schema.org/Thing">
+                  <a href="/categories/Ardb/" itemprop="url" rel="index">
+                    <span itemprop="name">Ardb</span>
+                  </a>
+                </span>
+
+                
+                
+
+              
+            </span>
+          
+
+          
+            
+              <span class="post-comments-count">
+                &nbsp; | &nbsp;
+                <a href="/Ardb/2014/09/13/ardb-practice.html#comments" itemprop="discussionUrl">
+                  <span class="post-comments-count ds-thread-count" data-thread-key="Ardb/2014/09/13/ardb-practice.html" itemprop="commentsCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+
+          
+          
+
+          
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <h2 id="部署运营情况"><a href="#部署运营情况" class="headerlink" title="部署运营情况"></a>部署运营情况</h2><p>Ardb（RocksDB）目前在生产环境中是作为一个在线推荐/查询系统的存储服务部署，持续运行了约半年，相关的一些运营情况</p>
+<ul>
+<li>1T SSD机器，主从互备</li>
+<li>共存储约450GB的原始数据（integer变长存储，snappy压缩并compact后120GB），每天约更新150GB的数据（存放到redis同样结构，大约700G内存占用）</li>
+<li>最大写入qps为20000（Ardb配置中限制）， 大多为hmset，sadd，geoadd，zrem，del等写/删除命令；写入数据由后台例行任务调用redis命令</li>
+<li>峰值查询qps在2000以上， 平均则近600， 查询命令多为hgetall， smembers， geosearch</li>
+<li>查询平均延迟不到1ms，准确说0.3ms左右</li>
+</ul>
+<a id="more"></a>
+<h2 id="实践总结以及Ardb的改进"><a href="#实践总结以及Ardb的改进" class="headerlink" title="实践总结以及Ardb的改进"></a>实践总结以及Ardb的改进</h2><ul>
+<li>RocksDB相比LevelDB在读写延迟方面改进不少，当半年前使用LevelDB作为底层存储， 当数据量上升到150G左右时，遇到严重延迟问题，查询会偶发性的阻塞长约几十秒；替换后，阻塞次数与时间都有下降， 但仍有10s内的查询延迟情况</li>
+<li>latency过长的主要原因在于rocksdb/leveldb compact时大量系统IO占用会阻塞某些涉及磁盘IO的操作</li>
+<li><p>rocksdb支持后台多线程执行compact， 一般设置两个优化选项即可，可以大大提升compact的效率</p>
+<pre><code>m_options.OptimizeLevelStyleCompaction();
+m_options.IncreaseParallelism();
+</code></pre></li>
+<li>rocksdb 3.4后可以设置compact时的最大磁盘IO量（字节/s）， 可以进一步降低compact对外部操作影响，缺点是会延长comapct时间。</li>
+<li>写入命令仍可能有几十ms的延迟；需要将读写线程分离降低对读延迟的影响</li>
+<li>多端口绑定以及端口IO线程分离；Ardb支持服务启动时绑定多个端口，每个端口绑定固定数目IO线程， 这样当端口A大量命令涌入时，理论上不会影响阻塞端口B的命令处理</li>
+<li>定期compact合并；大量重复修改覆盖某个key，会导致该key的多份数据跨越多个level，影响查询效率；尤其是对迭代器的迭代效率影响极大。Ardb中可以设置写入50000000次后触发主动compact操作，以及在有写操作情况下至少12小时触发一次compact操作</li>
+<li>执行上述改进后，80%的查询延迟在10ms内， 99.1%的查询延迟控制在100ms以内</li>
+<li>rocksdb/leveldb默认内置的Cache表现较差；基于block的cache，对于随机的查询key， 理论上block cache会频繁换出；对于全量数据每天例行更新的场景，cache的命中率会更差。</li>
+<li>近段时间加上一种high level的基于key级别的LRU cache，可以兼顾例行更新的情况， 小数据量实验中cache命中率最高可到28%，平均查询延迟降低到了2ms</li>
+<li>list/hash/set/sorted set等redis数据结构若成员数目不多的情况下，可以参考redis的实现，将所有成员压缩合并为一个key-value对存储， 对于hgetall/smembers等获取全部成员的操作效率提升极为明显；否则整个操作会涉及更多IO操作。</li>
+<li>数据成员为integer格式时， 按<a href="https://developers.google.com/protocol-buffers/docs/encoding" target="_blank" rel="external">zigzag</a>变长方式存储， 可以大大降低存储占用磁盘空间；450GB的原始数据中，integer变长存储，snappy压缩并compact后磁盘占用120GB。</li>
+<li>针对合并压缩存储的数据结构，增加了HReplace/SReplace命令，更新覆盖该key时，可以减少一次del操作</li>
+<li>rocksdb在没有外部命令写入触发compact时，作为一个只读查询DB，表现优秀，1000 qps的查询压力下平均查询延迟小于1ms</li>
+<li><p>运行内存占用比预期要大，block_cache_size 设置为10G时，无内存泄漏情况下，最后占用内存22G； leveldb占用内存更大，这个可能每个sst文件大小有关， rocksdb大约64MB一个(rocksdb支持配置修改)， leveldb则默认2MB一个。按<a href="https://github.com/basho/leveldb" target="_blank" rel="external">basho leveldb</a>的计算公式：</p>
+<pre><code>memory_usage = write_buffer_size*2  + max_open_files*4194304 + (size in NewLRUCache initialization)
+</code></pre></li>
+<li><p>rocksdb默认的max_manifest_file_size没有限制大小，当大量写入命令执行中重启服务，会导致启动时阻塞在recover极长时间， 我们遇到过的一次停顿了大约5个小时；可以设置max_manifest_file_size为2G降低启动时的recover时间</p>
+</li>
+</ul>
+
+      
+    </div>
+
+    <div>
+      
+        
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Ardb/" rel="tag">#Ardb</a>
+          
+            <a href="/tags/RocksDB/" rel="tag">#RocksDB</a>
+          
+        </div>
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/杂感/2014/09/09/misc3.html" rel="next" title="杂感之三">
+                <i class="fa fa-chevron-left"></i> 杂感之三
+              </a>
+            
+          </div>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/技术/2014/09/16/fast-bits-interleaving.html" rel="prev" title="快速Interleaving bits">
+                快速Interleaving bits <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </article>
+
+
+
+    <div class="post-spread">
+      
+        <!-- JiaThis Button BEGIN -->
+<div class="jiathis_style">
+  <a class="jiathis_button_tsina"></a>
+  <a class="jiathis_button_tqq"></a>
+  <a class="jiathis_button_weixin"></a>
+  <a class="jiathis_button_cqq"></a>
+  <a class="jiathis_button_douban"></a>
+  <a class="jiathis_button_renren"></a>
+  <a class="jiathis_button_qzone"></a>
+  <a class="jiathis_button_kaixin001"></a>
+  <a class="jiathis_button_copy"></a>
+  <a href="http://www.jiathis.com/share" class="jiathis jiathis_txt jiathis_separator jtico jtico_jiathis" target="_blank"></a>
+  <a class="jiathis_counter_style"></a>
+</div>
+<script type="text/javascript" >
+  var jiathis_config={
+    hideMore:false
+  }
+</script>
+<script type="text/javascript" src="http://v3.jiathis.com/code/jia.js" charset="utf-8"></script>
+<!-- JiaThis Button END -->
+
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+      <div class="ds-thread" data-thread-key="Ardb/2014/09/13/ardb-practice.html"
+           data-title="Ardb-RocksDB的一些生产环境实践总结" data-url="http://yinqiwen.github.io/Ardb/2014/09/13/ardb-practice.html">
+      </div>
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel ">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image"
+               src="/images/avatar.gif"
+               alt="yinqiwen" />
+          <p class="site-author-name" itemprop="name">yinqiwen</p>
+          <p class="site-description motion-element" itemprop="description">Tech & Think</p>
+        </div>
+        <nav class="site-state motion-element">
+          <div class="site-state-item site-state-posts">
+            <a href="/archives">
+              <span class="site-state-item-count">16</span>
+              <span class="site-state-item-name">日志</span>
+            </a>
+          </div>
+
+          
+            <div class="site-state-item site-state-categories">
+              <a href="/categories">
+                <span class="site-state-item-count">3</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            <div class="site-state-item site-state-tags">
+              <a href="/tags">
+                <span class="site-state-item-count">11</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+
+        <div class="links-of-author motion-element">
+          
+        </div>
+
+        
+        
+
+        
+        
+
+      </section>
+
+      
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+            
+              
+            
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#部署运营情况"><span class="nav-number">1.</span> <span class="nav-text">部署运营情况</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#实践总结以及Ardb的改进"><span class="nav-number">2.</span> <span class="nav-text">实践总结以及Ardb的改进</span></a></li></ol></div>
+            
+          </div>
+        </section>
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy;  2013 - 
+  <span itemprop="copyrightYear">2016</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">yinqiwen</span>
+</div>
+
+<div class="powered-by">
+  由 <a class="theme-link" href="http://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Pisces
+  </a>
+</div>
+
+        
+
+        
+      </div>
+    </footer>
+
+    <div class="back-to-top">
+      <i class="fa fa-arrow-up"></i>
+    </div>
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+  
+  <script type="text/javascript" src="/vendors/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/vendors/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/vendors/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/vendors/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/vendors/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/vendors/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.0.1"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.0.1"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.0.1"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.0.1"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.0.1"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.0.1"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.0.1"></script>
+
+
+
+  
+
+  
+    
+  
+
+  <script type="text/javascript">
+    var duoshuoQuery = {short_name:"yinqiwen"};
+    (function() {
+      var ds = document.createElement('script');
+      ds.type = 'text/javascript';ds.async = true;
+      ds.id = 'duoshuo-script';
+      ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+      ds.charset = 'UTF-8';
+      (document.getElementsByTagName('head')[0]
+      || document.getElementsByTagName('body')[0]).appendChild(ds);
+    })();
+  </script>
+
+  
+    
+  
+
+
+
+
+
+
+  
+  
+  
+
+  
+
+  
+
+</body>
+</html>
