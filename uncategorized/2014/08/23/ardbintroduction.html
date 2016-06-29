@@ -84,19 +84,19 @@
 
 
 
-<meta name="description" content="layout: posttitle: “Ardb简介”description: “”category: Ardbtagline: “Supporting tagline”
-tags: [Ardb, Redis]           简介Ardb是一个C/C++开发的完全兼容Redis协议的NoSQL存储服务，支持绝大部分Redis命令以及数据结构如list/hash/set/sorted set">
+<meta name="description" content="layout: posttitle: “Ardb简介”description: “”category: Ardb
+tags: [Ardb, Redis]           简介Ardb是一个C/C++开发的完全兼容Redis协议的NoSQL存储服务，支持绝大部分Redis命令以及数据结构如list/hash/set/sorted set，你可以很容易将依赖redis的业务在Redis和Ardb">
 <meta property="og:type" content="article">
 <meta property="og:title" content="隐去其闻">
 <meta property="og:url" content="http://yinqiwen.github.io/uncategorized/2014/08/23/ardbintroduction.html">
 <meta property="og:site_name" content="隐去其闻">
-<meta property="og:description" content="layout: posttitle: “Ardb简介”description: “”category: Ardbtagline: “Supporting tagline”
-tags: [Ardb, Redis]           简介Ardb是一个C/C++开发的完全兼容Redis协议的NoSQL存储服务，支持绝大部分Redis命令以及数据结构如list/hash/set/sorted set">
-<meta property="og:updated_time" content="2016-06-22T14:57:09.000Z">
+<meta property="og:description" content="layout: posttitle: “Ardb简介”description: “”category: Ardb
+tags: [Ardb, Redis]           简介Ardb是一个C/C++开发的完全兼容Redis协议的NoSQL存储服务，支持绝大部分Redis命令以及数据结构如list/hash/set/sorted set，你可以很容易将依赖redis的业务在Redis和Ardb">
+<meta property="og:updated_time" content="2016-06-27T09:55:19.000Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="隐去其闻">
-<meta name="twitter:description" content="layout: posttitle: “Ardb简介”description: “”category: Ardbtagline: “Supporting tagline”
-tags: [Ardb, Redis]           简介Ardb是一个C/C++开发的完全兼容Redis协议的NoSQL存储服务，支持绝大部分Redis命令以及数据结构如list/hash/set/sorted set">
+<meta name="twitter:description" content="layout: posttitle: “Ardb简介”description: “”category: Ardb
+tags: [Ardb, Redis]           简介Ardb是一个C/C++开发的完全兼容Redis协议的NoSQL存储服务，支持绝大部分Redis命令以及数据结构如list/hash/set/sorted set，你可以很容易将依赖redis的业务在Redis和Ardb">
 
 
 
@@ -271,8 +271,8 @@ tags: [Ardb, Redis]           简介Ardb是一个C/C++开发的完全兼容Redis
               <i class="fa fa-calendar-o"></i>
             </span>
             <span class="post-meta-item-text">发表于</span>
-            <time itemprop="dateCreated" datetime="2014-08-23T00:00:00+08:00" content="2014-08-22">
-              2014-08-22
+            <time itemprop="dateCreated" datetime="2014-08-23T12:00:00+08:00" content="2014-08-23">
+              2014-08-23
             </time>
           </span>
 
@@ -307,7 +307,7 @@ tags: [Ardb, Redis]           简介Ardb是一个C/C++开发的完全兼容Redis
 
       
         <hr>
-<p>layout: post<br>title: “Ardb简介”<br>description: “”<br>category: Ardb<br>tagline: “Supporting tagline”</p>
+<p>layout: post<br>title: “Ardb简介”<br>description: “”<br>category: Ardb</p>
 <h2 id="tags-Ardb-Redis"><a href="#tags-Ardb-Redis" class="headerlink" title="tags: [Ardb, Redis]           "></a>tags: [Ardb, Redis]           </h2><h2 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h2><p>Ardb是一个C/C++开发的完全兼容Redis协议的NoSQL存储服务，支持绝大部分Redis命令以及数据结构如list/hash/set/sorted set，你可以很容易将依赖redis的业务在Redis和Ardb之间来回迁移。 </p>
 <p>Ardb的存储基于现有成熟的KV存储引擎实现，理论上任何类似B-Tree/LSM Tree实现的KV存储实现均可作为Ardb的底层存储实现，目前Ardb支持LevelDB/RocksDB/LMDB.  </p>
 <p>Ardb项目的目的不是为了替换Redis（这点很重要）， 而是作为Redis的补充存在。Ardb重点解决的是在性能可接受的情况下单机支持远超过内存限制的数据量， 以及与Redis之间的互通的问题。</p>
@@ -325,28 +325,17 @@ tags: [Ardb, Redis]           简介Ardb是一个C/C++开发的完全兼容Redis
 <li>兼容所有的Redis的Client实现，你可以用任意Redis的client实现连接Ardb实例</li>
 <li><strong>多端口服务支持，读写端口分离， QPS限制， IP白名单等高级特性</strong></li>
 <li>支持作为一个库内置到其他服务中</li>
-<li>High Level的基于key级别的LRU Cache机制（尚不完善）</li>
 </ul>
 <a id="more"></a>
 <h2 id="Ardb支持的Redis命令情况"><a href="#Ardb支持的Redis命令情况" class="headerlink" title="Ardb支持的Redis命令情况"></a>Ardb支持的Redis命令情况</h2><p>以Redis2.8.9为比较标准，未列出的均是已经支持且与Redis语义相同的命令： </p>
 <h3 id="不支持"><a href="#不支持" class="headerlink" title="不支持"></a>不支持</h3><ul>
-<li>DUMP</li>
-<li>MIGRATE</li>
 <li>OBJECT</li>
-<li>RESTORE</li>
-<li>CONFIG RESETSTAT</li>
 <li>DEBUG</li>
-<li>MONITOR</li>
-<li>BITPOS</li>
-<li>PUBSUB</li>
-<li>RANDOMKEY</li>
 </ul>
 <h3 id="支持，但语义有不同之处"><a href="#支持，但语义有不同之处" class="headerlink" title="支持，但语义有不同之处"></a>支持，但语义有不同之处</h3><ul>
 <li>dbsize， 返回磁盘占用空间（字节数）</li>
 <li>setbit/getbit/bitcount/bitop, Ardb中用bitset结构保存而非string，可以支持非常大的offset</li>
 <li>info， 和redis的输出大有不同</li>
-<li>save/bgsave， 支持两种dump格式， 默认Ardb格式非Redis格式</li>
-<li>scan/hscan/sscan/zscan, 返回值中的cursor不是int而是字符串</li>
 </ul>
 <h3 id="新增"><a href="#新增" class="headerlink" title="新增"></a>新增</h3><ul>
 <li>GeoAdd/GeoSearch， 空间索引</li>
@@ -506,7 +495,7 @@ make
         <nav class="site-state motion-element">
           <div class="site-state-item site-state-posts">
             <a href="/archives">
-              <span class="site-state-item-count">16</span>
+              <span class="site-state-item-count">17</span>
               <span class="site-state-item-name">日志</span>
             </a>
           </div>

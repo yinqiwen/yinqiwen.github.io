@@ -84,28 +84,25 @@
 
 
 
-<meta name="description" content="随着Ardb的Replication实现部分稳定下来，需要开始考虑如何实现集群的方案了。中秋的几天抽空思考了下相关设计，以下是初步设想，可以作为初步设计草案。
-##目标与约定
-
-兼容Redis的client的cluster部分 —— 意味着client端可以直接用redis的各种支持cluster的client实现，而无需单独开发
-集群节点间复制机制沿用现有异步实现，意味着在主从切换时存在丢数据的">
+<meta name="description" content="Update 2016-06目前想法有改变，现在考虑基于raft + gossip实现类似redis cluster的功能，兼容后续的redis cluster client或者工具。  
+随着Ardb的Replication实现部分稳定下来，需要开始考虑如何实现集群的方案了。中秋的几天抽空思考了下相关设计，以下是初步设想，可以作为初步设计草案。
+目标与约定
+兼容Redis的client的clus">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Ardb集群设计（草案）">
 <meta property="og:url" content="http://yinqiwen.github.io/Ardb/2014/09/08/cluster.html">
 <meta property="og:site_name" content="隐去其闻">
-<meta property="og:description" content="随着Ardb的Replication实现部分稳定下来，需要开始考虑如何实现集群的方案了。中秋的几天抽空思考了下相关设计，以下是初步设想，可以作为初步设计草案。
-##目标与约定
-
-兼容Redis的client的cluster部分 —— 意味着client端可以直接用redis的各种支持cluster的client实现，而无需单独开发
-集群节点间复制机制沿用现有异步实现，意味着在主从切换时存在丢数据的">
-<meta property="og:updated_time" content="2016-06-22T14:53:18.000Z">
+<meta property="og:description" content="Update 2016-06目前想法有改变，现在考虑基于raft + gossip实现类似redis cluster的功能，兼容后续的redis cluster client或者工具。  
+随着Ardb的Replication实现部分稳定下来，需要开始考虑如何实现集群的方案了。中秋的几天抽空思考了下相关设计，以下是初步设想，可以作为初步设计草案。
+目标与约定
+兼容Redis的client的clus">
+<meta property="og:updated_time" content="2016-06-24T12:58:20.000Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Ardb集群设计（草案）">
-<meta name="twitter:description" content="随着Ardb的Replication实现部分稳定下来，需要开始考虑如何实现集群的方案了。中秋的几天抽空思考了下相关设计，以下是初步设想，可以作为初步设计草案。
-##目标与约定
-
-兼容Redis的client的cluster部分 —— 意味着client端可以直接用redis的各种支持cluster的client实现，而无需单独开发
-集群节点间复制机制沿用现有异步实现，意味着在主从切换时存在丢数据的">
+<meta name="twitter:description" content="Update 2016-06目前想法有改变，现在考虑基于raft + gossip实现类似redis cluster的功能，兼容后续的redis cluster client或者工具。  
+随着Ardb的Replication实现部分稳定下来，需要开始考虑如何实现集群的方案了。中秋的几天抽空思考了下相关设计，以下是初步设想，可以作为初步设计草案。
+目标与约定
+兼容Redis的client的clus">
 
 
 
@@ -280,8 +277,8 @@
               <i class="fa fa-calendar-o"></i>
             </span>
             <span class="post-meta-item-text">发表于</span>
-            <time itemprop="dateCreated" datetime="2014-09-07T12:00:00-04:00" content="2014-09-07">
-              2014-09-07
+            <time itemprop="dateCreated" datetime="2014-09-08T12:00:00+08:00" content="2014-09-08">
+              2014-09-08
             </time>
           </span>
 
@@ -334,9 +331,9 @@
       
 
       
-        <p>随着Ardb的Replication实现部分稳定下来，需要开始考虑如何实现集群的方案了。中秋的几天抽空思考了下相关设计，以下是初步设想，可以作为初步设计草案。</p>
-<p>##目标与约定</p>
-<ul>
+        <h2 id="Update-2016-06"><a href="#Update-2016-06" class="headerlink" title="Update 2016-06"></a>Update 2016-06</h2><p>目前想法有改变，现在考虑基于raft + gossip实现类似redis cluster的功能，兼容后续的redis cluster client或者工具。  </p>
+<p>随着Ardb的Replication实现部分稳定下来，需要开始考虑如何实现集群的方案了。中秋的几天抽空思考了下相关设计，以下是初步设想，可以作为初步设计草案。</p>
+<h2 id="目标与约定"><a href="#目标与约定" class="headerlink" title="目标与约定"></a>目标与约定</h2><ul>
 <li>兼容Redis的client的cluster部分 —— 意味着client端可以直接用redis的各种支持cluster的client实现，而无需单独开发</li>
 <li>集群节点间复制机制沿用现有异步实现，意味着在主从切换时存在丢数据的可能，这个无法避免；此约束需要特别指明，以防误解</li>
 <li>此分布式系统应该满足AP限制， 较弱的一致性约束</li>
@@ -440,16 +437,16 @@
         <div class="post-nav">
           <div class="post-nav-next post-nav-item">
             
-              <a href="/杂感/2014/09/05/misc2.html" rel="next" title="杂感之二">
-                <i class="fa fa-chevron-left"></i> 杂感之二
+              <a href="/Ardb/2014/09/08/cold-hot-data.html" rel="next" title="一种基于Redis/Ardb的混合部署存储方案">
+                <i class="fa fa-chevron-left"></i> 一种基于Redis/Ardb的混合部署存储方案
               </a>
             
           </div>
 
           <div class="post-nav-prev post-nav-item">
             
-              <a href="/Ardb/2014/09/08/cold-hot-data.html" rel="prev" title="一种基于Redis/Ardb的混合部署存储方案">
-                一种基于Redis/Ardb的混合部署存储方案 <i class="fa fa-chevron-right"></i>
+              <a href="/杂感/2014/09/09/misc3.html" rel="prev" title="杂感之三">
+                杂感之三 <i class="fa fa-chevron-right"></i>
               </a>
             
           </div>
@@ -545,7 +542,7 @@
         <nav class="site-state motion-element">
           <div class="site-state-item site-state-posts">
             <a href="/archives">
-              <span class="site-state-item-count">16</span>
+              <span class="site-state-item-count">17</span>
               <span class="site-state-item-name">日志</span>
             </a>
           </div>
@@ -591,7 +588,7 @@
               
             
             
-              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Cluster-Manager"><span class="nav-number">1.</span> <span class="nav-text">Cluster Manager</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#功能"><span class="nav-number">1.1.</span> <span class="nav-text">功能</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#内部逻辑实现"><span class="nav-number">1.2.</span> <span class="nav-text">内部逻辑实现</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#节点恢复"><span class="nav-number">1.2.1.</span> <span class="nav-text">节点恢复</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#节点删除"><span class="nav-number">1.2.2.</span> <span class="nav-text">节点删除</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#节点新增"><span class="nav-number">1.2.3.</span> <span class="nav-text">节点新增</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#一些待完善的思路"><span class="nav-number">1.3.</span> <span class="nav-text">一些待完善的思路</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#总结"><span class="nav-number">1.4.</span> <span class="nav-text">总结</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Node-Agent-amp-Ardb"><span class="nav-number">2.</span> <span class="nav-text">Node Agent & Ardb</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#内部逻辑实现-1"><span class="nav-number">2.1.</span> <span class="nav-text">内部逻辑实现</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#一些待完善的思路-1"><span class="nav-number">2.2.</span> <span class="nav-text">一些待完善的思路</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#总结-1"><span class="nav-number">2.3.</span> <span class="nav-text">总结</span></a></li></ol></li></ol></div>
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Update-2016-06"><span class="nav-number">1.</span> <span class="nav-text">Update 2016-06</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#目标与约定"><span class="nav-number">2.</span> <span class="nav-text">目标与约定</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Cluster-Manager"><span class="nav-number">3.</span> <span class="nav-text">Cluster Manager</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#功能"><span class="nav-number">3.1.</span> <span class="nav-text">功能</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#内部逻辑实现"><span class="nav-number">3.2.</span> <span class="nav-text">内部逻辑实现</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#节点恢复"><span class="nav-number">3.2.1.</span> <span class="nav-text">节点恢复</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#节点删除"><span class="nav-number">3.2.2.</span> <span class="nav-text">节点删除</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#节点新增"><span class="nav-number">3.2.3.</span> <span class="nav-text">节点新增</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#一些待完善的思路"><span class="nav-number">3.3.</span> <span class="nav-text">一些待完善的思路</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#总结"><span class="nav-number">3.4.</span> <span class="nav-text">总结</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Node-Agent-amp-Ardb"><span class="nav-number">4.</span> <span class="nav-text">Node Agent & Ardb</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#内部逻辑实现-1"><span class="nav-number">4.1.</span> <span class="nav-text">内部逻辑实现</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#一些待完善的思路-1"><span class="nav-number">4.2.</span> <span class="nav-text">一些待完善的思路</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#总结-1"><span class="nav-number">4.3.</span> <span class="nav-text">总结</span></a></li></ol></li></ol></div>
             
           </div>
         </section>

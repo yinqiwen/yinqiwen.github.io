@@ -94,7 +94,7 @@
 <meta property="og:description" content="Ardb早在半年前的0.7.0版本就已经具备了二维空间数据的存储/查询的能力；基于此能力，可以构建基于位置实时服务， 比如实时查找附近的地理位置，附近的人等LBS类型服务。以下介绍Ardb中空间索引的实现原理以及如何使用。
 原理Ardb中的二维空间索引实现从原理上说，可以简化为GeoHash + Sorted Set。 在比较早的时候写过一篇英文原理介绍在这里, 这里用中文再介绍一次。 
 所谓二维">
-<meta property="og:updated_time" content="2016-06-22T14:54:43.000Z">
+<meta property="og:updated_time" content="2016-06-24T12:12:22.000Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="利用Ardb/Redis构建基于位置实时服务">
 <meta name="twitter:description" content="Ardb早在半年前的0.7.0版本就已经具备了二维空间数据的存储/查询的能力；基于此能力，可以构建基于位置实时服务， 比如实时查找附近的地理位置，附近的人等LBS类型服务。以下介绍Ardb中空间索引的实现原理以及如何使用。
@@ -274,8 +274,8 @@
               <i class="fa fa-calendar-o"></i>
             </span>
             <span class="post-meta-item-text">发表于</span>
-            <time itemprop="dateCreated" datetime="2014-09-29T12:00:00-04:00" content="2014-09-29">
-              2014-09-29
+            <time itemprop="dateCreated" datetime="2014-09-30T12:00:00+08:00" content="2014-09-30">
+              2014-09-30
             </time>
           </span>
 
@@ -329,11 +329,11 @@
 
       
         <p>Ardb早在半年前的0.7.0版本就已经具备了二维空间数据的存储/查询的能力；基于此能力，可以构建基于位置实时服务， 比如实时查找附近的地理位置，附近的人等LBS类型服务。以下介绍Ardb中空间索引的实现原理以及如何使用。</p>
-<h2 id="原理"><a href="#原理" class="headerlink" title="原理"></a>原理</h2><p>Ardb中的二维空间索引实现从原理上说，可以简化为GeoHash + Sorted Set。 在比较早的时候写过一篇英文原理介绍在<a href="https://github.com/yinqiwen/ardb/blob/master/doc/spatial-index.md" target="_blank" rel="external">这里</a>, 这里用中文再介绍一次。 </p>
+<h2 id="原理"><a href="#原理" class="headerlink" title="原理"></a>原理</h2><p>Ardb中的二维空间索引实现从原理上说，可以简化为GeoHash + Sorted Set。 在比较早的时候写过一篇英文原理介绍在<a href="https://github.com/yinqiwen/ardb/wiki/Spatial-Index" target="_blank" rel="external">这里</a>, 这里用中文再介绍一次。 </p>
 <p>所谓二维空间索引， 就是对二维空间数据建立索引， 通常key-value形式的存储只能存储一维的数据， 针对二维数据， 就需要做降维处理。降维的方法有很多种，Ardb中采用的是成熟的<a href="http://en.wikipedia.org/wiki/Geohash" target="_blank" rel="external">GeoHash</a>。 GeoHash是一种对经纬度进行编码的实现，利用GeoHash可以将二维的坐标编码成一维的数据， 如字符串。这样，我们就可以将二维的坐标作为索引的key保存了。  </p>
 <p>大部分的GeoHash实现都是将二维的坐标编码编码为Base32的字符串， 这种结果不适用于Sorted Set（只支持double类型的score），另外也存在精度问题。 由于Base32字符串中一个字符代表5个bit，和GeoHash编码步骤每次产生2bit不匹配，当Base32字符串长度为奇数时，此GeoHash值代表一个长宽不相等的矩形，这个对于计算半径精度误差较大。 此外，由于一个字符代表5个bit，意味着增加/减少位置精度需要每5bit增减，这对于范围查询时，存在较大的浪费。</p>
 <p>我另外参考GeoHash原理写了另外一个<a href="https://github.com/yinqiwen/geohash-int" target="_blank" rel="external">GeoHash-Int库</a>, 只生成64bit integer结果，每增加/减少位置精度只需要2bit增减。</p>
-<p>关于GeoHash于GeoHash-Int的详细介绍，可以参考这篇文章<a href="http://yinqiwen.github.io/%E6%8A%80%E6%9C%AF/2014/08/24/geohash/" target="_blank" rel="external">GeoHash介绍与改进的GeoHash-Int</a>.</p>
+<p>关于GeoHash于GeoHash-Int的详细介绍，可以参考这篇文章<a href="http://yinqiwen.github.io/%E6%8A%80%E6%9C%AF/2014/08/24/geohash/">GeoHash介绍与改进的GeoHash-Int</a>.</p>
 <p>关于Redis的Sorted Set， 可以暂时理解为一个排序的集合。 由于GeoHash有一个特点，相近的坐标的GeoHash值有很大几率非常接近，从属于同一个GeoHash编码区域，即使在边缘情况不相邻下，也可以通过通过查找邻居的方法找到所在GeoHash编码区域。 我们可以将GeoHash值作为score，坐标点的名称作为value存储到一个sorted set中。 这样，在查找相近坐标时，可以利用Sorted Set的<code>ZRANGEBYSCORE</code>方法找到相近的指定范围的坐标集合。</p>
 <p>以下介绍在Ardb中的具体实现与相关协议命令。</p>
 <a id="more"></a>
@@ -516,7 +516,7 @@ L1-zset-seek-load-cache   yes      //sorted set范围读取时触发加载到cac
         <nav class="site-state motion-element">
           <div class="site-state-item site-state-posts">
             <a href="/archives">
-              <span class="site-state-item-count">16</span>
+              <span class="site-state-item-count">17</span>
               <span class="site-state-item-name">日志</span>
             </a>
           </div>

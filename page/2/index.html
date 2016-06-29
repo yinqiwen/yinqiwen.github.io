@@ -258,6 +258,135 @@
             
               
                 
+                <a class="post-title-link" href="/Ardb/2014/09/08/cold-hot-data.html" itemprop="url">
+                  一种基于Redis/Ardb的混合部署存储方案
+                </a>
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            <span class="post-meta-item-icon">
+              <i class="fa fa-calendar-o"></i>
+            </span>
+            <span class="post-meta-item-text">发表于</span>
+            <time itemprop="dateCreated" datetime="2014-09-08T00:00:00-04:00" content="2014-09-08">
+              2014-09-08
+            </time>
+          </span>
+
+          
+            <span class="post-category" >
+              &nbsp; | &nbsp;
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+              
+                <span itemprop="about" itemscope itemtype="https://schema.org/Thing">
+                  <a href="/categories/Ardb/" itemprop="url" rel="index">
+                    <span itemprop="name">Ardb</span>
+                  </a>
+                </span>
+
+                
+                
+
+              
+            </span>
+          
+
+          
+            
+              <span class="post-comments-count">
+                &nbsp; | &nbsp;
+                <a href="/Ardb/2014/09/08/cold-hot-data.html#comments" itemprop="discussionUrl">
+                  <span class="post-comments-count ds-thread-count" data-thread-key="Ardb/2014/09/08/cold-hot-data.html" itemprop="commentsCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+
+          
+          
+
+          
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        
+          <p>考虑这样一种场景：每天有较多的数据更新，也有较多的数据被访问；从一个时间段总体看来，某份数据只在一定时间段内会被频繁访问，超过这个时间就极少被访问，这样的数据比率占到绝大部分。<br>例如网站统计数据就与这种场景类似，只有当天的统计数据会被更新，只有最近7天（或30天）的数据有较大可能会被访问到，极少有人会主动访问历史数据。可以参考下百度统计，CNZZ， GA等系统的数据。</p>
+<p>针对类似数据存储场景， 我们可以构建一个Redis为Master， Ardb为Slave的存储系统。Ardb需要更改两项默认配置为’yes’：    </p>
+<pre><code>slave-ignore-expire   yes
+slave-ignore-del      yes
+</code></pre><p>前端应用层写入数据只写入到Redis，每更新一次数据，设置expire时间为7天（或30天，自行控制）；该数据会被同步至Ardb， 同时被忽略掉expire设置； 另外由于Redis的expire机制是当expire触发时，redis生成一个’del’命令同步至slave, 所以Ardb slave也需要忽略del命令已保证数据不丢失。 伪码逻辑如下：</p>
+<pre><code>redis.Set(key, value)
+redis.Expire(key, 7*24*3600)  //expired after 7day
+</code></pre>
+          <div class="post-more-link text-center">
+            <a class="btn" href="/Ardb/2014/09/08/cold-hot-data.html#more" rel="contents">
+              阅读全文 &raquo;
+            </a>
+          </div>
+        
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+    <div>
+      
+    </div>
+
+    <footer class="post-footer">
+      
+
+      
+
+      
+      
+        <div class="post-eof"></div>
+      
+    </footer>
+  </article>
+
+
+    
+      
+
+  
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                
                 <a class="post-title-link" href="/杂感/2014/09/05/misc2.html" itemprop="url">
                   杂感之二
                 </a>
@@ -272,8 +401,8 @@
               <i class="fa fa-calendar-o"></i>
             </span>
             <span class="post-meta-item-text">发表于</span>
-            <time itemprop="dateCreated" datetime="2014-09-04T12:00:00-04:00" content="2014-09-04">
-              2014-09-04
+            <time itemprop="dateCreated" datetime="2014-09-05T00:00:00-04:00" content="2014-09-05">
+              2014-09-05
             </time>
           </span>
 
@@ -407,8 +536,8 @@
               <i class="fa fa-calendar-o"></i>
             </span>
             <span class="post-meta-item-text">发表于</span>
-            <time itemprop="dateCreated" datetime="2014-09-03T12:00:00-04:00" content="2014-09-03">
-              2014-09-03
+            <time itemprop="dateCreated" datetime="2014-09-04T00:00:00-04:00" content="2014-09-04">
+              2014-09-04
             </time>
           </span>
 
@@ -547,8 +676,8 @@
               <i class="fa fa-calendar-o"></i>
             </span>
             <span class="post-meta-item-text">发表于</span>
-            <time itemprop="dateCreated" datetime="2014-08-29T12:00:00-04:00" content="2014-08-29">
-              2014-08-29
+            <time itemprop="dateCreated" datetime="2014-08-30T00:00:00-04:00" content="2014-08-30">
+              2014-08-30
             </time>
           </span>
 
@@ -667,8 +796,8 @@
               <i class="fa fa-calendar-o"></i>
             </span>
             <span class="post-meta-item-text">发表于</span>
-            <time itemprop="dateCreated" datetime="2014-08-29T12:00:00-04:00" content="2014-08-29">
-              2014-08-29
+            <time itemprop="dateCreated" datetime="2014-08-30T00:00:00-04:00" content="2014-08-30">
+              2014-08-30
             </time>
           </span>
 
@@ -794,8 +923,8 @@
               <i class="fa fa-calendar-o"></i>
             </span>
             <span class="post-meta-item-text">发表于</span>
-            <time itemprop="dateCreated" datetime="2014-08-23T12:00:00-04:00" content="2014-08-23">
-              2014-08-23
+            <time itemprop="dateCreated" datetime="2014-08-24T00:00:00-04:00" content="2014-08-24">
+              2014-08-24
             </time>
           </span>
 
@@ -926,8 +1055,8 @@
               <i class="fa fa-calendar-o"></i>
             </span>
             <span class="post-meta-item-text">发表于</span>
-            <time itemprop="dateCreated" datetime="2014-08-22T12:00:00-04:00" content="2014-08-22">
-              2014-08-22
+            <time itemprop="dateCreated" datetime="2014-08-23T00:00:00-04:00" content="2014-08-23">
+              2014-08-23
             </time>
           </span>
 
@@ -963,7 +1092,7 @@
       
         
           <hr>
-<p>layout: post<br>title: “Ardb简介”<br>description: “”<br>category: Ardb<br>tagline: “Supporting tagline”</p>
+<p>layout: post<br>title: “Ardb简介”<br>description: “”<br>category: Ardb</p>
 <h2 id="tags-Ardb-Redis"><a href="#tags-Ardb-Redis" class="headerlink" title="tags: [Ardb, Redis]           "></a>tags: [Ardb, Redis]           </h2><h2 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h2><p>Ardb是一个C/C++开发的完全兼容Redis协议的NoSQL存储服务，支持绝大部分Redis命令以及数据结构如list/hash/set/sorted set，你可以很容易将依赖redis的业务在Redis和Ardb之间来回迁移。 </p>
 <p>Ardb的存储基于现有成熟的KV存储引擎实现，理论上任何类似B-Tree/LSM Tree实现的KV存储实现均可作为Ardb的底层存储实现，目前Ardb支持LevelDB/RocksDB/LMDB.  </p>
 <p>Ardb项目的目的不是为了替换Redis（这点很重要）， 而是作为Redis的补充存在。Ardb重点解决的是在性能可接受的情况下单机支持远超过内存限制的数据量， 以及与Redis之间的互通的问题。</p>
@@ -981,7 +1110,6 @@
 <li>兼容所有的Redis的Client实现，你可以用任意Redis的client实现连接Ardb实例</li>
 <li><strong>多端口服务支持，读写端口分离， QPS限制， IP白名单等高级特性</strong></li>
 <li>支持作为一个库内置到其他服务中</li>
-<li>High Level的基于key级别的LRU Cache机制（尚不完善）</li>
 </ul>
           <div class="post-more-link text-center">
             <a class="btn" href="/uncategorized/2014/08/23/ardbintroduction.html#more" rel="contents">
@@ -1059,7 +1187,7 @@
         <nav class="site-state motion-element">
           <div class="site-state-item site-state-posts">
             <a href="/archives">
-              <span class="site-state-item-count">16</span>
+              <span class="site-state-item-count">17</span>
               <span class="site-state-item-name">日志</span>
             </a>
           </div>

@@ -98,7 +98,7 @@ Overview首先，有这样的设计约定：
 
 所有的数据结构，都可以被一对或者多对简单key-value表示
 每种">
-<meta property="og:updated_time" content="2016-06-22T14:55:21.000Z">
+<meta property="og:updated_time" content="2016-06-24T12:11:06.000Z">
 <meta name="twitter:card" content="summary">
 <meta name="twitter:title" content="Ardb内部编解码格式">
 <meta name="twitter:description" content="在Ardb的设计中， 编解码层是一个很重要的环节。编解码层的存在， 屏蔽了各种kv存储实现的不同，可以在任意一个简单的kv存储引擎上， 封装实现string， hash， list， set， sorted set等复杂类型的数据结构。这里简单介绍下Ardb中的编解码层的设计实现。
@@ -280,8 +280,8 @@ Overview首先，有这样的设计约定：
               <i class="fa fa-calendar-o"></i>
             </span>
             <span class="post-meta-item-text">发表于</span>
-            <time itemprop="dateCreated" datetime="2014-11-21T11:00:00-05:00" content="2014-11-21">
-              2014-11-21
+            <time itemprop="dateCreated" datetime="2014-11-22T13:00:00+08:00" content="2014-11-22">
+              2014-11-22
             </time>
           </span>
 
@@ -341,40 +341,45 @@ Overview首先，有这样的设计约定：
 <li>每种数据结构，至少包含一个元信息key-value对(meta)，用于保存额外的信息（db，类型，expire时间等）；如hash、set、list、sorted set等复杂结构均是每个key对应有一个meta</li>
 </ul>
 <h2 id="内部Key的格式"><a href="#内部Key的格式" class="headerlink" title="内部Key的格式"></a>内部Key的格式</h2><p>对于所有的Key， 包含同样的前缀，编码格式定义如下：</p>
-<pre><code>db(3B) type（1B） key(V) ...
-</code></pre><p>Note： 3B、1B代表3字节，1字节， ‘V’代表变长字符串<br><a id="more"></a></p>
+<pre><code>[&lt;namespace&gt;] &lt;key&gt; &lt;type&gt; &lt;element...&gt;
+</code></pre><p>Note： namespace 为可选部分。<br><a id="more"></a></p>
 <ul>
-<li>db用于支持类似redis中的库概念；db支持0-16777215</li>
+<li>namespace用于支持类似redis中的库概念；可以为任意字符串</li>
 <li>key则是一个变长二进制字符串</li>
 <li>type用于定义一个简单key-value的类型，此类型隐含表明key的数据结构类型;一个字节</li>
 <li>meta信息的key中type固定为KEY_META；具体类型将在value中定义（参考下一节）</li>
 <li>除以上三部分外，不同类型的key可能有附加字段；如Hash的key可能需要附加field字段</li>
-<li>所有类型type在<a href="https://github.com/yinqiwen/ardb/blob/master/src/codec.hpp" target="_blank" rel="external">codec.hpp</a>中定义</li>
 </ul>
-<h2 id="内部Value的格式"><a href="#内部Value的格式" class="headerlink" title="内部Value的格式"></a>内部Value的格式</h2><p>内部Value则比较复杂，编码均以type（1字节）开始， type取值即上节定义的KeyType</p>
-<pre><code>type(1B) ...  
-</code></pre><p>后续格式根据各种类型定义不同，不过Meta value中均以expire时间开始，详细在后续<code>expire实现</code>中讨论。</p>
-<h2 id="Code"><a href="#Code" class="headerlink" title="Code"></a>Code</h2><p>所有编解码实现在<a href="https://github.com/yinqiwen/ardb/blob/master/src/codec.hpp" target="_blank" rel="external">codec.hpp</a>以及<a href="https://github.com/yinqiwen/ardb/blob/master/src/codec.cpp" target="_blank" rel="external">codec.cpp</a>中</p>
-<h2 id="Del的实现"><a href="#Del的实现" class="headerlink" title="Del的实现"></a>Del的实现</h2><p>所有的数据结构都有保存meta的一个key-value，而meta信息的key编码格式是统一的，因此在ardb中是不可能出现不同数据结构有相同名字的情况。<br>Del实现中会先查询meta的key-value，得到具体数据结构类型，然后执行对应的删除工作， 类似如下的步骤：  </p>
+<h2 id="内部Value的格式"><a href="#内部Value的格式" class="headerlink" title="内部Value的格式"></a>内部Value的格式</h2><p>内部Value则比较复杂，编码均以type开始， type取值即上节定义的KeyType</p>
+<pre><code>&lt;type&gt; &lt;element...&gt;
+</code></pre><p>后续格式根据各种类型定义不同.</p>
+<h2 id="Codec"><a href="#Codec" class="headerlink" title="Codec"></a>Codec</h2><p>所有编码格式如下：</p>
+<pre><code>                     KeyObject                                                   ValueObject
+String      [&lt;namespace&gt;]  &lt;key&gt; KEY_META                                   KEY_STRING &lt;MetaObject&gt;
+Hash        [&lt;namespace&gt;]  &lt;key&gt; KEY_META                                   KEY_HASH &lt;MetaObject&gt;
+            [&lt;namespace&gt;]  &lt;key&gt; KEY_HASH_FIELD &lt;field&gt;                     KEY_HASH_FIELD &lt;field-value&gt;
+Set         [&lt;namespace&gt;]  &lt;key&gt; KEY_META                                   KEY_SET &lt;MetaObject&gt;
+            [&lt;namespace&gt;]  &lt;key&gt; KEY_SET_MEMBER &lt;member&gt;                    KEY_SET_MEMBER
+List        [&lt;namespace&gt;]  &lt;key&gt; KEY_META                                   KEY_LIST &lt;MetaObject&gt;
+            [&lt;namespace&gt;]  &lt;key&gt; KEY_LIST_ELEMENT &lt;index&gt;                   KEY_LIST_ELEMENT &lt;element-value&gt;
+Sorted Set  [&lt;namespace&gt;]  &lt;key&gt; KEY_META                                   KEY_ZSET &lt;MetaObject&gt;
+            [&lt;namespace&gt;]  &lt;key&gt; KEY_ZSET_SCORE &lt;member&gt;                    KEY_ZSET_SCORE &lt;score&gt;
+            [&lt;namespace&gt;]  &lt;key&gt; KEY_ZSET_SORT &lt;score&gt; &lt;member&gt;             KEY_ZSET_SORT
+</code></pre><h2 id="Del的实现"><a href="#Del的实现" class="headerlink" title="Del的实现"></a>Del的实现</h2><p>所有的数据结构都有保存meta的一个key-value，而meta信息的key编码格式是统一的，因此在ardb中是不可能出现不同数据结构有相同名字的情况。<br>Del实现中会先查询meta的key-value，得到具体数据结构类型，然后执行对应的删除工作， 类似如下的步骤：  </p>
 <ul>
 <li>查询指定key的meta信息，得到数据结构类型</li>
 <li>根据具体类型，执行删除工作</li>
 <li>所以一次del至少需要 一次读 + 后续删除写操作 </li>
-</ul>
-<p>##Zip Value<br>Ardb中针对hash、set、list、sorted set等复杂结构有一个zip value的优化，基本思路仍然受redis实现影响； </p>
-<ul>
-<li>当hash、set、list、sorted set等复杂结构中保存元素数量和大小比较小的时候，将会用一个key-value保存， value中将把这些元素紧凑合并在一起；</li>
-<li>此优化对于小数据量的hash/set等在<code>hgetall/smembers/del</code>等这些操作优化极为明显；将对多个key的操作简化到一个key上</li>
-<li>zip value会保存在meta的value中</li>
 </ul>
 <h2 id="Expire的实现"><a href="#Expire的实现" class="headerlink" title="Expire的实现"></a>Expire的实现</h2><p>在一个key-value存储引擎上支持复杂数据结构的expire过期数据的实现比较困难，ardb中则用几个特殊技巧实现了对所有数据结构的过期（expire）的支持，感兴趣的朋友可以一起讨论下。<br>具体实现如下： </p>
 <ul>
 <li>meta的value中保存expire信息， 用绝对unix时间（ms）保存；</li>
 <li>基于以上设计，ttl/pttl等查询ttl的操作只需要一次读meta即可完成；</li>
 <li>基于以上设计，任何对meta信息的读取，都会触发expire的判断，由于对meta信息的读操作是必须的步骤，这里无需额外的读操作</li>
-<li>保存设置expire时间到meta时， 当expire时间非0时，额外保存一个key-value， type为<code>KEY_EXPIRATION_ELEMENT</code>； key的编码格式为 <code>&lt;db&gt;&lt;expire time&gt;&lt;key&gt;</code>, value为空；所以类似<code>expire &lt;key&gt;</code>等设置过期时间的操作，在ardb的实现中将会多一次写操作；</li>
-<li>在自定义的comparator中，对<code>KEY_EXPIRATION_ELEMENT</code>类型的key比较规则为先比较<code>&lt;expire time&gt;</code>，这样<code>KEY_EXPIRATION_ELEMENT</code>数据将会以过期时间远近保存在一起</li>
-<li>ardb中独立启动一个线程，每隔一定时间（100ms）顺序扫描<code>KEY_EXPIRATION_ELEMENT</code>类型数据；当过期时间小于当前时间，即可触发删除操作；当过期时间大于当前时间，即可终止本次扫描</li>
+<li>创建一个namespace <code>TTL_DB</code>专门存放TTL排序信息。</li>
+<li>保存设置expire时间到meta时， 当expire时间非0时，额外保存一个key-value， type为<code>KEY_TTL_SORT</code>； key的编码格式为 <code>[TTL_DB] &quot;&quot; KEY_TTL_SORT &lt;ttl&gt; &lt;key&#39;s namespace&gt; &lt;key&gt;</code>, value为空；所以类似<code>expire &lt;key&gt;</code>等设置过期时间的操作，在ardb的实现中将会多一次写操作；</li>
+<li>在自定义的comparator中，对<code>KEY_TTL_SORT</code>类型的key比较规则为先比较<code>&lt;expire time&gt;</code>，这样<code>KEY_TTL_SORT</code>数据将会以过期时间远近保存在一起</li>
+<li>ardb中独立启动一个线程，每隔一定时间（100ms）顺序扫描<code>KEY_TTL_SORT</code>类型数据；当过期时间小于当前时间，即可触发删除操作；当过期时间大于当前时间，即可终止本次扫描</li>
 </ul>
 
       
@@ -413,6 +418,10 @@ Overview首先，有这样的设计约定：
           </div>
 
           <div class="post-nav-prev post-nav-item">
+            
+              <a href="/uncategorized/2016/06/25/test.html" rel="prev" title="test">
+                test <i class="fa fa-chevron-right"></i>
+              </a>
             
           </div>
         </div>
@@ -507,7 +516,7 @@ Overview首先，有这样的设计约定：
         <nav class="site-state motion-element">
           <div class="site-state-item site-state-posts">
             <a href="/archives">
-              <span class="site-state-item-count">16</span>
+              <span class="site-state-item-count">17</span>
               <span class="site-state-item-name">日志</span>
             </a>
           </div>
@@ -553,7 +562,7 @@ Overview首先，有这样的设计约定：
               
             
             
-              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Overview"><span class="nav-number">1.</span> <span class="nav-text">Overview</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#内部Key的格式"><span class="nav-number">2.</span> <span class="nav-text">内部Key的格式</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#内部Value的格式"><span class="nav-number">3.</span> <span class="nav-text">内部Value的格式</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Code"><span class="nav-number">4.</span> <span class="nav-text">Code</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Del的实现"><span class="nav-number">5.</span> <span class="nav-text">Del的实现</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Expire的实现"><span class="nav-number">6.</span> <span class="nav-text">Expire的实现</span></a></li></ol></div>
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Overview"><span class="nav-number">1.</span> <span class="nav-text">Overview</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#内部Key的格式"><span class="nav-number">2.</span> <span class="nav-text">内部Key的格式</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#内部Value的格式"><span class="nav-number">3.</span> <span class="nav-text">内部Value的格式</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Codec"><span class="nav-number">4.</span> <span class="nav-text">Codec</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Del的实现"><span class="nav-number">5.</span> <span class="nav-text">Del的实现</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Expire的实现"><span class="nav-number">6.</span> <span class="nav-text">Expire的实现</span></a></li></ol></div>
             
           </div>
         </section>
