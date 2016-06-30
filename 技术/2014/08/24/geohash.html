@@ -1,0 +1,698 @@
+<!doctype html>
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/vendors/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/vendors/font-awesome/css/font-awesome.min.css?v=4.4.0" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.0.1" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="GeoHash," />
+
+
+
+
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=5.0.1" />
+
+
+
+
+
+
+<meta name="description" content="##关于GeoHashGeoHash是一种将二维坐标数据编码为一维数据的算法，具体可以参考GeoHash Wiki.简单的描述下算法， 首先将整个平面按x, y轴对半， 如下则得到四个区域， 分别二进制编码为（00, 01, 10, 11）.    
+*  -----------------
+*  |       |       |
+*  |       |       |
+*  | 0,1">
+<meta property="og:type" content="article">
+<meta property="og:title" content="GeoHash介绍与改进的GeoHash-Int">
+<meta property="og:url" content="http://yinqiwen.github.io/技术/2014/08/24/geohash.html">
+<meta property="og:site_name" content="隐去其闻">
+<meta property="og:description" content="##关于GeoHashGeoHash是一种将二维坐标数据编码为一维数据的算法，具体可以参考GeoHash Wiki.简单的描述下算法， 首先将整个平面按x, y轴对半， 如下则得到四个区域， 分别二进制编码为（00, 01, 10, 11）.    
+*  -----------------
+*  |       |       |
+*  |       |       |
+*  | 0,1">
+<meta property="og:updated_time" content="2016-06-30T13:54:20.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="GeoHash介绍与改进的GeoHash-Int">
+<meta name="twitter:description" content="##关于GeoHashGeoHash是一种将二维坐标数据编码为一维数据的算法，具体可以参考GeoHash Wiki.简单的描述下算法， 首先将整个平面按x, y轴对半， 如下则得到四个区域， 分别二进制编码为（00, 01, 10, 11）.    
+*  -----------------
+*  |       |       |
+*  |       |       |
+*  | 0,1">
+
+
+
+<script type="text/javascript" id="hexo.configuration">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    scheme: 'Pisces',
+    sidebar: {"position":"left","display":"post"},
+    fancybox: true,
+    motion: true,
+    duoshuo: {
+      userId: 0,
+      author: '博主'
+    }
+  };
+</script>
+
+
+
+
+  <link rel="canonical" href="http://yinqiwen.github.io/技术/2014/08/24/geohash.html"/>
+
+  <title> GeoHash介绍与改进的GeoHash-Int | 隐去其闻 </title>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+
+
+
+
+
+
+
+
+
+
+  
+  
+    
+  
+
+  <div class="container one-collumn sidebar-position-left page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-meta ">
+  
+
+  <div class="custom-logo-site-title">
+    <a href="/"  class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <span class="site-title">隐去其闻</span>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+  <p class="site-subtitle"></p>
+</div>
+
+<div class="site-nav-toggle">
+  <button>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+  </button>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br />
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-user"></i> <br />
+            
+            关于
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            归档
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            标签
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                GeoHash介绍与改进的GeoHash-Int
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            <span class="post-meta-item-icon">
+              <i class="fa fa-calendar-o"></i>
+            </span>
+            <span class="post-meta-item-text">发表于</span>
+            <time itemprop="dateCreated" datetime="2014-08-24T12:00:00+08:00" content="2014-08-24">
+              2014-08-24
+            </time>
+          </span>
+
+          
+            <span class="post-category" >
+              &nbsp; | &nbsp;
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+              
+                <span itemprop="about" itemscope itemtype="https://schema.org/Thing">
+                  <a href="/categories/技术/" itemprop="url" rel="index">
+                    <span itemprop="name">技术</span>
+                  </a>
+                </span>
+
+                
+                
+
+              
+            </span>
+          
+
+          
+            
+              <span class="post-comments-count">
+                &nbsp; | &nbsp;
+                <a href="/技术/2014/08/24/geohash.html#comments" itemprop="discussionUrl">
+                  <span class="post-comments-count ds-thread-count" data-thread-key="技术/2014/08/24/geohash.html" itemprop="commentsCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+
+          
+          
+
+          
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>##关于GeoHash<br>GeoHash是一种将二维坐标数据编码为一维数据的算法，具体可以参考<a href="http://en.wikipedia.org/wiki/Geohash" target="_blank" rel="external">GeoHash Wiki</a>.<br>简单的描述下算法， 首先将整个平面按x, y轴对半， 如下则得到四个区域， 分别二进制编码为（00, 01, 10, 11）.    </p>
+<pre><code>*  -----------------
+*  |       |       |
+*  |       |       |
+*  | 0,1   | 1,1   |
+*  -----------------
+*  |       |       |
+*  |       |       |
+*  | 0,0   | 1,0   |
+*  -----------------
+</code></pre><p>每个编码代表一个矩形区域范围， 若某坐标落在区域01中， 则置首两位编码为01， 其中0为x轴的编码， 1为y轴的编码； 以此迭代类推下去，累积的编码长度越长， 则编码代表的区域与坐标本身的误差越小，无限逼近下去，是可以认为是完全等同的。 实际上，针对地球坐标，GeoHash编码在大约52bit，即类似上述步骤重复26次， 精度已经小于1m了，足够精确。</p>
+<a id="more"></a>
+<p>##基于GeoHash的空间索引实现<br>基于GeoHash的空间索引的实现，本质上就是将一组坐标通过GeoHash编码， 将编码后的值保存到存储系统中。后续的查找， 都基于GeoHash编码完成。<br>通常的GeoHash的实现，均是将GeoHash的编码为Base32的字符串。 按照以上的GeoHash算法描述， 由于相近的坐标有很大几率的GeoHash的开头部分是相同的， 这样在一般的存储服务例如mysql中，可以很容易的基于前缀匹配找到相近的点。相关的做法， 网上有不少详细描述，这里不再赘述。<br>大家可能也发现到， 简单基于前缀匹配的做法，对于目标坐标在GeoHash区域的边缘情况是无法解决的。针对这一点，通常的GeoHash实现也提供一个接口， 用于计算某个GeoHash编码的周围8个区域的编码（东，南， 西， 北， 东北， 东南， 西北， 西南）。分别对于周边8个区域查找，可以解决这类边缘情况。<br>这里也简单介绍下计算周边8个相邻区域的编码方法：<br>由于GeoHash的编码实际上是X轴的编码与Y轴的编码错位合并而成， 如X轴编码为11（扩展为1010）， Y轴编码为01（扩展为0001）， 则GeoHash的值为1011 = 1010 + 0001.  </p>
+<ul>
+<li>东方的区域实际上是X轴编码+1， Y轴编码不变， 则为 1010 + 1 + 0001 = 1100   </li>
+<li>西方的区域实际上是X轴编码-1， Y轴编码不变</li>
+<li>北方的区域实际上是X轴编码不变， Y轴编码+1</li>
+<li>南方的区域实际上是X轴编码不变， Y轴编码-1</li>
+<li>东北的区域实际上是X轴编码+1， Y轴编码+1</li>
+<li>西北的区域实际上是X轴编码-1， Y轴编码+1</li>
+<li>西南的区域实际上是X轴编码-1， Y轴编码-1</li>
+<li>东南的区域实际上是X轴编码+1， Y轴编码-1</li>
+</ul>
+<p>##改进的GeoHash-Int<br>目前GeoHash实现大部分均只提供Base32编码的结果, Base32编码的优点是直观可视， 例如某些地图（包括Google）就用Base32的GeoHash字符串作为坐标的url。缺点则是占用空间大， 以及每增加一个字符，跨越的空间范围过大，不规则（考虑下每字符代表5bit， 以及GeoHash原理是每2bit算一个步进）。<br>鉴于上述的问题， 这里提供一个高性能的C99实现的GeoHash库，提供64bit int的GeoHash结果， 以及快速计算相邻区域的方法。这个库已经用于Ardb的空间索引实现， 表现极为优秀。 项目的地址在这里。 <a href="https://github.com/yinqiwen/geohash-int" target="_blank" rel="external">GeoHash-Int</a></p>
+
+      
+    </div>
+
+    <div>
+      
+        
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/GeoHash/" rel="tag">#GeoHash</a>
+          
+        </div>
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/uncategorized/2014/08/23/ardbintroduction.html" rel="next" title="">
+                <i class="fa fa-chevron-left"></i> 
+              </a>
+            
+          </div>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/技术/2014/08/30/travis-ci.html" rel="prev" title="Ardb添加Travis CI持续编译集成">
+                Ardb添加Travis CI持续编译集成 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </article>
+
+
+
+    <div class="post-spread">
+      
+        <!-- JiaThis Button BEGIN -->
+<div class="jiathis_style">
+  <a class="jiathis_button_tsina"></a>
+  <a class="jiathis_button_tqq"></a>
+  <a class="jiathis_button_weixin"></a>
+  <a class="jiathis_button_cqq"></a>
+  <a class="jiathis_button_douban"></a>
+  <a class="jiathis_button_renren"></a>
+  <a class="jiathis_button_qzone"></a>
+  <a class="jiathis_button_kaixin001"></a>
+  <a class="jiathis_button_copy"></a>
+  <a href="http://www.jiathis.com/share" class="jiathis jiathis_txt jiathis_separator jtico jtico_jiathis" target="_blank"></a>
+  <a class="jiathis_counter_style"></a>
+</div>
+<script type="text/javascript" >
+  var jiathis_config={
+    hideMore:false
+  }
+</script>
+<script type="text/javascript" src="http://v3.jiathis.com/code/jia.js" charset="utf-8"></script>
+<!-- JiaThis Button END -->
+
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+      <div class="ds-thread" data-thread-key="技术/2014/08/24/geohash.html"
+           data-title="GeoHash介绍与改进的GeoHash-Int" data-url="http://yinqiwen.github.io/技术/2014/08/24/geohash.html">
+      </div>
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel ">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image"
+               src="/images/avatar.gif"
+               alt="yinqiwen" />
+          <p class="site-author-name" itemprop="name">yinqiwen</p>
+          <p class="site-description motion-element" itemprop="description">Tech & Think</p>
+        </div>
+        <nav class="site-state motion-element">
+          <div class="site-state-item site-state-posts">
+            <a href="/archives">
+              <span class="site-state-item-count">17</span>
+              <span class="site-state-item-name">日志</span>
+            </a>
+          </div>
+
+          
+            <div class="site-state-item site-state-categories">
+              <a href="/categories">
+                <span class="site-state-item-count">3</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            <div class="site-state-item site-state-tags">
+              <a href="/tags">
+                <span class="site-state-item-count">11</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+
+        <div class="links-of-author motion-element">
+          
+        </div>
+
+        
+        
+
+        
+        
+
+      </section>
+
+      
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+            
+              
+            
+            
+              <p class="post-toc-empty">此文章未包含目录</p>
+            
+          </div>
+        </section>
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy;  2013 - 
+  <span itemprop="copyrightYear">2016</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">yinqiwen</span>
+</div>
+
+<div class="powered-by">
+  由 <a class="theme-link" href="http://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Pisces
+  </a>
+</div>
+
+        
+
+        
+      </div>
+    </footer>
+
+    <div class="back-to-top">
+      <i class="fa fa-arrow-up"></i>
+    </div>
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+  
+  <script type="text/javascript" src="/vendors/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/vendors/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/vendors/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/vendors/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/vendors/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/vendors/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.0.1"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.0.1"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.0.1"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.0.1"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.0.1"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.0.1"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.0.1"></script>
+
+
+
+  
+
+  
+    
+  
+
+  <script type="text/javascript">
+    var duoshuoQuery = {short_name:"yinqiwen"};
+    (function() {
+      var ds = document.createElement('script');
+      ds.type = 'text/javascript';ds.async = true;
+      ds.id = 'duoshuo-script';
+      ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+      ds.charset = 'UTF-8';
+      (document.getElementsByTagName('head')[0]
+      || document.getElementsByTagName('body')[0]).appendChild(ds);
+    })();
+  </script>
+
+  
+    
+  
+
+
+
+
+
+
+  
+  
+  
+
+  
+
+  
+
+</body>
+</html>

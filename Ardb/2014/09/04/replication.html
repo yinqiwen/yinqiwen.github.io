@@ -1,0 +1,741 @@
+<!doctype html>
+
+
+
+  
+
+
+<html class="theme-next pisces use-motion">
+<head>
+  <meta charset="UTF-8"/>
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"/>
+
+
+
+<meta http-equiv="Cache-Control" content="no-transform" />
+<meta http-equiv="Cache-Control" content="no-siteapp" />
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  
+  <link href="/vendors/fancybox/source/jquery.fancybox.css?v=2.1.5" rel="stylesheet" type="text/css" />
+
+
+
+
+  
+  
+  
+  
+
+  
+    
+    
+  
+
+  
+
+  
+
+  
+
+  
+
+  
+    
+    
+    <link href="//fonts.googleapis.com/css?family=Lato:300,300italic,400,400italic,700,700italic&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+  
+
+
+
+
+
+
+<link href="/vendors/font-awesome/css/font-awesome.min.css?v=4.4.0" rel="stylesheet" type="text/css" />
+
+<link href="/css/main.css?v=5.0.1" rel="stylesheet" type="text/css" />
+
+
+  <meta name="keywords" content="Ardb,Redis,Replication," />
+
+
+
+
+
+
+
+
+  <link rel="shortcut icon" type="image/x-icon" href="/favicon.ico?v=5.0.1" />
+
+
+
+
+
+
+<meta name="description" content="近段时间花了几天重新review了下Ardb中的主从复制的设计与实现，经过多次高压力环境下的测试，已经相当稳定了。这里简单介绍下Redis与Ardb中的主从复制实现， 以及两者简单比较。   
+##Redis
+###2.6之前在Redis2.6及以前，主从复制机制比较简单， 基本可以描述为全量镜像复制 + 异步持续复制。大致的过程如下：  
+
+Slave发送Sync命令给Master   
+Mas">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Ardb与Redis中的复制机制简介与比较">
+<meta property="og:url" content="http://yinqiwen.github.io/Ardb/2014/09/04/replication.html">
+<meta property="og:site_name" content="隐去其闻">
+<meta property="og:description" content="近段时间花了几天重新review了下Ardb中的主从复制的设计与实现，经过多次高压力环境下的测试，已经相当稳定了。这里简单介绍下Redis与Ardb中的主从复制实现， 以及两者简单比较。   
+##Redis
+###2.6之前在Redis2.6及以前，主从复制机制比较简单， 基本可以描述为全量镜像复制 + 异步持续复制。大致的过程如下：  
+
+Slave发送Sync命令给Master   
+Mas">
+<meta property="og:updated_time" content="2016-06-30T13:54:20.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Ardb与Redis中的复制机制简介与比较">
+<meta name="twitter:description" content="近段时间花了几天重新review了下Ardb中的主从复制的设计与实现，经过多次高压力环境下的测试，已经相当稳定了。这里简单介绍下Redis与Ardb中的主从复制实现， 以及两者简单比较。   
+##Redis
+###2.6之前在Redis2.6及以前，主从复制机制比较简单， 基本可以描述为全量镜像复制 + 异步持续复制。大致的过程如下：  
+
+Slave发送Sync命令给Master   
+Mas">
+
+
+
+<script type="text/javascript" id="hexo.configuration">
+  var NexT = window.NexT || {};
+  var CONFIG = {
+    scheme: 'Pisces',
+    sidebar: {"position":"left","display":"post"},
+    fancybox: true,
+    motion: true,
+    duoshuo: {
+      userId: 0,
+      author: '博主'
+    }
+  };
+</script>
+
+
+
+
+  <link rel="canonical" href="http://yinqiwen.github.io/Ardb/2014/09/04/replication.html"/>
+
+  <title> Ardb与Redis中的复制机制简介与比较 | 隐去其闻 </title>
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" lang="zh-Hans">
+
+  
+
+
+
+
+
+
+
+
+
+
+  
+  
+    
+  
+
+  <div class="container one-collumn sidebar-position-left page-post-detail ">
+    <div class="headband"></div>
+
+    <header id="header" class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-meta ">
+  
+
+  <div class="custom-logo-site-title">
+    <a href="/"  class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <span class="site-title">隐去其闻</span>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+  </div>
+  <p class="site-subtitle"></p>
+</div>
+
+<div class="site-nav-toggle">
+  <button>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+    <span class="btn-bar"></span>
+  </button>
+</div>
+
+<nav class="site-nav">
+  
+
+  
+    <ul id="menu" class="menu">
+      
+        
+        <li class="menu-item menu-item-home">
+          <a href="/" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-home"></i> <br />
+            
+            首页
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-categories">
+          <a href="/categories" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-th"></i> <br />
+            
+            分类
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-about">
+          <a href="/about" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-user"></i> <br />
+            
+            关于
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-archives">
+          <a href="/archives" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-archive"></i> <br />
+            
+            归档
+          </a>
+        </li>
+      
+        
+        <li class="menu-item menu-item-tags">
+          <a href="/tags" rel="section">
+            
+              <i class="menu-item-icon fa fa-fw fa-tags"></i> <br />
+            
+            标签
+          </a>
+        </li>
+      
+
+      
+    </ul>
+  
+
+  
+</nav>
+
+ </div>
+    </header>
+
+    <main id="main" class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          <div id="content" class="content">
+            
+
+  <div id="posts" class="posts-expand">
+    
+
+  
+  
+
+  
+  
+  
+
+  <article class="post post-type-normal " itemscope itemtype="http://schema.org/Article">
+
+    
+      <header class="post-header">
+
+        
+        
+          <h1 class="post-title" itemprop="name headline">
+            
+            
+              
+                Ardb与Redis中的复制机制简介与比较
+              
+            
+          </h1>
+        
+
+        <div class="post-meta">
+          <span class="post-time">
+            <span class="post-meta-item-icon">
+              <i class="fa fa-calendar-o"></i>
+            </span>
+            <span class="post-meta-item-text">发表于</span>
+            <time itemprop="dateCreated" datetime="2014-09-04T12:00:00+08:00" content="2014-09-04">
+              2014-09-04
+            </time>
+          </span>
+
+          
+            <span class="post-category" >
+              &nbsp; | &nbsp;
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+              
+                <span itemprop="about" itemscope itemtype="https://schema.org/Thing">
+                  <a href="/categories/Ardb/" itemprop="url" rel="index">
+                    <span itemprop="name">Ardb</span>
+                  </a>
+                </span>
+
+                
+                
+
+              
+            </span>
+          
+
+          
+            
+              <span class="post-comments-count">
+                &nbsp; | &nbsp;
+                <a href="/Ardb/2014/09/04/replication.html#comments" itemprop="discussionUrl">
+                  <span class="post-comments-count ds-thread-count" data-thread-key="Ardb/2014/09/04/replication.html" itemprop="commentsCount"></span>
+                </a>
+              </span>
+            
+          
+
+          
+
+          
+          
+
+          
+        </div>
+      </header>
+    
+
+
+    <div class="post-body" itemprop="articleBody">
+
+      
+      
+
+      
+        <p>近段时间花了几天重新review了下Ardb中的主从复制的设计与实现，经过多次高压力环境下的测试，已经相当稳定了。这里简单介绍下Redis与Ardb中的主从复制实现， 以及两者简单比较。   </p>
+<p>##Redis</p>
+<p>###2.6之前<br>在Redis2.6及以前，主从复制机制比较简单， 基本可以描述为全量镜像复制 + 异步持续复制。大致的过程如下：  </p>
+<ul>
+<li>Slave发送Sync命令给Master   </li>
+<li>Master收到Sync命令后，开始全量dump内存到rdb文件中。于此同时， master接收到的后续写入命令都缓存到Slave的连接待发送缓冲区里；</li>
+<li>Master在dump期间，定时给Slave发送一个换行字符以保持TCP连接</li>
+<li>dump过程结束后，Master将此文件发送给Slave。 文件发送完毕后，继续发送待发送缓冲区replication数据；  后续收到的写操作直接发送给Slave。</li>
+<li>Slave将接收到的dump内容保存到rdb文件中，接受完毕后开始load到内存中；此过程是阻塞操作，期间不能处理任何其他命令。</li>
+<li>Slave加载完rdb文件后，即可认为Master/Slave已经是完成同步状态， Slave可以开始提供对外服务</li>
+<li>Master每间隔repl-ping-slave-period秒（默认10s）给所有完成同步的Slave发送ping； 若slave在repl-timeout秒（默认60s）内未收到复制命令（包括ping），则自动断开和master之间连接。</li>
+<li>若Slave重新连接上Master， 则之上的步骤重新执行一次</li>
+</ul>
+<p>Redis2.6及以前的主从复制机制相对比较简单， 很好的保证了数据一致性，复制效率的要求。不过在一些比较极端的场景下，这种复制机制有些缺陷。 考虑下面的场景： </p>
+<ul>
+<li>Master存储了10G的数据，Slave与Master之间网络不稳定， 频繁断开；</li>
+<li>Master存储了100G的数据，Slave完成同步后，Master宕机。 Slave切换为Master， 而原先Master恢复后，将原Master改为新Master的Slave。（用redis sentinel可以自动模拟这种切换场景）</li>
+</ul>
+<p>这两种场景都要求Master， Slave之间在每次连接时重新开始全量镜像复制。</p>
+<a id="more"></a>
+<p>###2.8之后<br>在Redis2.8之后， 针对上面描述的第一个缺陷，增加了增量复制的能力，相对复杂了些。大致实现过程如下：</p>
+<ul>
+<li>Master在内存里维护一个repl-backlog-size大小（默认1M）的环形缓冲区，所有需要复制到slave的写入命令都会写入到此缓冲区里。Master同时记录缓冲区的长度， 当前复制偏移量（持续增加的int64），当前在缓冲区偏移量（缓冲区下标），以及一些其它值。</li>
+<li>Slave发送PSync <code>&lt;runid&gt; &lt;replication offset&gt;</code>到Master</li>
+<li>若runid与Master不匹配，或者replication offset与Master当前的replication offset相差过大，Master会回复一个 +FULLRESYNC <runid> <replication offset="">给Slave， 开始全量镜像复制。</replication></runid></li>
+<li>全量镜像复制的过程以及之后的复制过程与上述2.6的复制中描述的一样。Slave在全量复制后， 需要将FULLRESYNC携带的runid， replication offset保存起来，后续每次接收到复制命令后， 更新replication offset</li>
+<li>若master判断runid与Master匹配， replication offset也是一个正常范围内的取值（与当前replication offset相差小于repl-backlog-size大小）， 则Master给Slave回复一个+Continue， 开始增量更新</li>
+<li>增量更新开始后，Master将Slave的replication offset到自己当前replication offset的内容发送给Slave；repl-backlog数据发送完毕后，后续则是将需要复制的命令逐一发送给Redis</li>
+<li>若Slave与Master断开连接并重连， 由于Slave中保存有master的runid以及最新的replication offset， 在断开的时间足够短的情况下，Master会判定是增量更新，只需要发送很少的数据给Slave。</li>
+</ul>
+<p>Redis2.8的增量更新基本解决了短时间断开重连后的全量复制的问题。但遇到稍长时间的断开（1小时左右）， 大部分情况会遇到需要全量复制的问题。</p>
+<p>##Ardb<br>Ardb的主从复制在遵循Redis2.8的设计的基础上，增加了状态，复制日志持久化，复制内容校验功能。</p>
+<ul>
+<li>Mater/Slave通过内存映射文件（mmap）创建一个较大的缓冲区。缓冲区分为两部分， 头部固定长度， 用于保存各种replication状态， 包括replication offset/checksum等， 剩下部分是一个repl-backlog-size大小（默认1G）的环形缓冲区。</li>
+<li>缓冲区更改的内容每5s flush到硬盘上</li>
+<li>Slave发送APSYNC <code>&lt;runid&gt; &lt;replication offset&gt; &lt;checksum&gt;</code>到Master</li>
+<li>若runid与Master不匹配，或者replication offset与Master当前的replication offset相差过大， 或者checksum与需要复制的剩余内容计算后和当前的replication checksum不一致，Master会回复一个 +FULLRESYNC <runid> <replication offset=""> <checksum>给Slave， 开始全量镜像复制。</checksum></replication></runid></li>
+<li>全量镜像复制的过程以及之后的复制过程与上述2.6的复制中描述的一样。Slave在全量复制后， 需要将FULLRESYNC携带的runid， replication offset，checksum保存起来，后续每次接收到复制命令后， 更新replication offset以及checksum。</li>
+<li>若master判断可以增量更新，master给Slave回复一个+Continue， 开始增量更新（后续与Redis2.8一致）</li>
+<li>在全量复制结束后， Ardb中相对Redis增加了一个Replication log的checksum计算过程，代表整个复制内容的checksum， 根据replication backlog内容更改而持续更新</li>
+<li>若Slave与Master断开连接并重连， 由于master中的replication backlog比较大， 可以支撑更长时间的slave断开情况， 对于恢复时间较长的场景更有用。</li>
+<li>若Master宕机， Slave切换到到Mater； 然后经过一段时间，Master恢复， 并被设置为新master的slave。 由于Master/Slave的各种replication状态是持久化的，新的master会认为这是一个断开重连的slave，并判断是否增量更新。</li>
+</ul>
+<p>Ardb的增量更新机制基本解决了Master/Slave发生主从切换情况下的增量同步复制的问题。</p>
+<p>##Redis Vs Ardb</p>
+<p>###Redis的优势</p>
+<ul>
+<li>代码相对更简单易于理解</li>
+<li>用于主从复制的内存占用较少</li>
+</ul>
+<p>###Ardb的优势</p>
+<ul>
+<li>支持更长时间的Slave宕机情况(由repl-backlog-size大小以及写频率决定)</li>
+<li>Master/Slave发生主从切换，条件具备情况下，可以避免全量复制的发生</li>
+<li>兼容Redis， 支持Redis作为主/从</li>
+</ul>
+<h2 id="目前设计实现的问题"><a href="#目前设计实现的问题" class="headerlink" title="目前设计实现的问题"></a>目前设计实现的问题</h2><ul>
+<li>Slave复制只有一个线程执行，且与对外查询端口共享；而Master可能开启多个线程执行写入，因此理论上存在Slave复制无法赶上Master写入的问题（增加repl-backlog-size只能缓解，无法根本解决）；后续实现上可以修改解决</li>
+<li>无法做到可选db粒度的复制（如mysql中slave可以配置只复制某一个database）；设计的选择，暂无法实现</li>
+</ul>
+
+      
+    </div>
+
+    <div>
+      
+        
+      
+    </div>
+
+    <div>
+      
+        
+
+      
+    </div>
+
+    <footer class="post-footer">
+      
+        <div class="post-tags">
+          
+            <a href="/tags/Ardb/" rel="tag">#Ardb</a>
+          
+            <a href="/tags/Redis/" rel="tag">#Redis</a>
+          
+            <a href="/tags/Replication/" rel="tag">#Replication</a>
+          
+        </div>
+      
+
+      
+        <div class="post-nav">
+          <div class="post-nav-next post-nav-item">
+            
+              <a href="/杂感/2014/08/30/misc.html" rel="next" title="杂感之一">
+                <i class="fa fa-chevron-left"></i> 杂感之一
+              </a>
+            
+          </div>
+
+          <div class="post-nav-prev post-nav-item">
+            
+              <a href="/杂感/2014/09/05/misc2.html" rel="prev" title="杂感之二">
+                杂感之二 <i class="fa fa-chevron-right"></i>
+              </a>
+            
+          </div>
+        </div>
+      
+
+      
+      
+    </footer>
+  </article>
+
+
+
+    <div class="post-spread">
+      
+        <!-- JiaThis Button BEGIN -->
+<div class="jiathis_style">
+  <a class="jiathis_button_tsina"></a>
+  <a class="jiathis_button_tqq"></a>
+  <a class="jiathis_button_weixin"></a>
+  <a class="jiathis_button_cqq"></a>
+  <a class="jiathis_button_douban"></a>
+  <a class="jiathis_button_renren"></a>
+  <a class="jiathis_button_qzone"></a>
+  <a class="jiathis_button_kaixin001"></a>
+  <a class="jiathis_button_copy"></a>
+  <a href="http://www.jiathis.com/share" class="jiathis jiathis_txt jiathis_separator jtico jtico_jiathis" target="_blank"></a>
+  <a class="jiathis_counter_style"></a>
+</div>
+<script type="text/javascript" >
+  var jiathis_config={
+    hideMore:false
+  }
+</script>
+<script type="text/javascript" src="http://v3.jiathis.com/code/jia.js" charset="utf-8"></script>
+<!-- JiaThis Button END -->
+
+      
+    </div>
+  </div>
+
+
+          </div>
+          
+
+
+          
+  <div class="comments" id="comments">
+    
+      <div class="ds-thread" data-thread-key="Ardb/2014/09/04/replication.html"
+           data-title="Ardb与Redis中的复制机制简介与比较" data-url="http://yinqiwen.github.io/Ardb/2014/09/04/replication.html">
+      </div>
+    
+  </div>
+
+
+        </div>
+        
+          
+  
+  <div class="sidebar-toggle">
+    <div class="sidebar-toggle-line-wrap">
+      <span class="sidebar-toggle-line sidebar-toggle-line-first"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-middle"></span>
+      <span class="sidebar-toggle-line sidebar-toggle-line-last"></span>
+    </div>
+  </div>
+
+  <aside id="sidebar" class="sidebar">
+    <div class="sidebar-inner">
+
+      
+
+      
+        <ul class="sidebar-nav motion-element">
+          <li class="sidebar-nav-toc sidebar-nav-active" data-target="post-toc-wrap" >
+            文章目录
+          </li>
+          <li class="sidebar-nav-overview" data-target="site-overview">
+            站点概览
+          </li>
+        </ul>
+      
+
+      <section class="site-overview sidebar-panel ">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+          <img class="site-author-image" itemprop="image"
+               src="/images/avatar.gif"
+               alt="yinqiwen" />
+          <p class="site-author-name" itemprop="name">yinqiwen</p>
+          <p class="site-description motion-element" itemprop="description">Tech & Think</p>
+        </div>
+        <nav class="site-state motion-element">
+          <div class="site-state-item site-state-posts">
+            <a href="/archives">
+              <span class="site-state-item-count">17</span>
+              <span class="site-state-item-name">日志</span>
+            </a>
+          </div>
+
+          
+            <div class="site-state-item site-state-categories">
+              <a href="/categories">
+                <span class="site-state-item-count">3</span>
+                <span class="site-state-item-name">分类</span>
+              </a>
+            </div>
+          
+
+          
+            <div class="site-state-item site-state-tags">
+              <a href="/tags">
+                <span class="site-state-item-count">11</span>
+                <span class="site-state-item-name">标签</span>
+              </a>
+            </div>
+          
+
+        </nav>
+
+        
+
+        <div class="links-of-author motion-element">
+          
+        </div>
+
+        
+        
+
+        
+        
+
+      </section>
+
+      
+        <section class="post-toc-wrap motion-element sidebar-panel sidebar-panel-active">
+          <div class="post-toc">
+            
+              
+            
+            
+              <div class="post-toc-content"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#目前设计实现的问题"><span class="nav-number">1.</span> <span class="nav-text">目前设计实现的问题</span></a></li></ol></div>
+            
+          </div>
+        </section>
+      
+
+    </div>
+  </aside>
+
+
+        
+      </div>
+    </main>
+
+    <footer id="footer" class="footer">
+      <div class="footer-inner">
+        <div class="copyright" >
+  
+  &copy;  2013 - 
+  <span itemprop="copyrightYear">2016</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">yinqiwen</span>
+</div>
+
+<div class="powered-by">
+  由 <a class="theme-link" href="http://hexo.io">Hexo</a> 强力驱动
+</div>
+
+<div class="theme-info">
+  主题 -
+  <a class="theme-link" href="https://github.com/iissnan/hexo-theme-next">
+    NexT.Pisces
+  </a>
+</div>
+
+        
+
+        
+      </div>
+    </footer>
+
+    <div class="back-to-top">
+      <i class="fa fa-arrow-up"></i>
+    </div>
+  </div>
+
+  
+
+<script type="text/javascript">
+  if (Object.prototype.toString.call(window.Promise) !== '[object Function]') {
+    window.Promise = null;
+  }
+</script>
+
+
+
+
+
+
+
+
+
+  
+
+
+
+  
+  <script type="text/javascript" src="/vendors/jquery/index.js?v=2.1.3"></script>
+
+  
+  <script type="text/javascript" src="/vendors/fastclick/lib/fastclick.min.js?v=1.0.6"></script>
+
+  
+  <script type="text/javascript" src="/vendors/jquery_lazyload/jquery.lazyload.js?v=1.9.7"></script>
+
+  
+  <script type="text/javascript" src="/vendors/velocity/velocity.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/vendors/velocity/velocity.ui.min.js?v=1.2.1"></script>
+
+  
+  <script type="text/javascript" src="/vendors/fancybox/source/jquery.fancybox.pack.js?v=2.1.5"></script>
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/utils.js?v=5.0.1"></script>
+
+  <script type="text/javascript" src="/js/src/motion.js?v=5.0.1"></script>
+
+
+
+  
+  
+
+
+  <script type="text/javascript" src="/js/src/affix.js?v=5.0.1"></script>
+
+  <script type="text/javascript" src="/js/src/schemes/pisces.js?v=5.0.1"></script>
+
+
+
+  
+  <script type="text/javascript" src="/js/src/scrollspy.js?v=5.0.1"></script>
+<script type="text/javascript" src="/js/src/post-details.js?v=5.0.1"></script>
+
+
+
+  
+
+
+  <script type="text/javascript" src="/js/src/bootstrap.js?v=5.0.1"></script>
+
+
+
+  
+
+  
+    
+  
+
+  <script type="text/javascript">
+    var duoshuoQuery = {short_name:"yinqiwen"};
+    (function() {
+      var ds = document.createElement('script');
+      ds.type = 'text/javascript';ds.async = true;
+      ds.id = 'duoshuo-script';
+      ds.src = (document.location.protocol == 'https:' ? 'https:' : 'http:') + '//static.duoshuo.com/embed.js';
+      ds.charset = 'UTF-8';
+      (document.getElementsByTagName('head')[0]
+      || document.getElementsByTagName('body')[0]).appendChild(ds);
+    })();
+  </script>
+
+  
+    
+  
+
+
+
+
+
+
+  
+  
+  
+
+  
+
+  
+
+</body>
+</html>
